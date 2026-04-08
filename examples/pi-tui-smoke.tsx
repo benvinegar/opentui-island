@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { useKeyboard } from "@opentui/react";
-import { useState } from "react";
 import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
@@ -27,25 +25,6 @@ class NullTerminal implements Terminal {
   setTitle(_title: string) {}
 }
 
-function CounterApp() {
-  const [count, setCount] = useState(0);
-
-  useKeyboard(
-    (event) => {
-      if (event.eventType !== "release" && event.name === "a") {
-        setCount((value) => value + 1);
-      }
-    },
-    { release: true },
-  );
-
-  return (
-    <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>
-      <text fg="#00ff88">{`count: ${count}`}</text>
-    </box>
-  );
-}
-
 const terminal = new NullTerminal(24, 4);
 const tui = new TUI(terminal);
 let renderRequests = 0;
@@ -56,24 +35,26 @@ const surface = await createPiTuiOpenTuiSurface({
   requestRender: () => {
     renderRequests += 1;
   },
-  tree: <CounterApp />,
+  island: { module: new URL("./islands/counter.island.tsx", import.meta.url) },
 });
 
-tui.addChild(surface);
-tui.setFocus(surface);
+try {
+  tui.addChild(surface);
+  tui.setFocus(surface);
 
-await surface.sync(24);
-const initialLines = tui.render(24);
-assert(initialLines.join("\n").includes("count: 0"));
-assert(renderRequests > 0);
+  await surface.sync(24);
+  const initialLines = tui.render(24);
+  assert(initialLines.join("\n").includes("count:0"));
+  assert(renderRequests > 0);
 
-await surface.sendInput("a");
-const updatedLines = tui.render(24);
-assert(updatedLines.join("\n").includes("count: 1"));
+  await surface.sendInput("a");
+  const updatedLines = tui.render(24);
+  assert(updatedLines.join("\n").includes("count:1"));
 
-console.log("pi-tui adapter smoke ok");
-for (const line of updatedLines) {
-  console.log(line);
+  console.log("pi-tui adapter smoke ok");
+  for (const line of updatedLines) {
+    console.log(line);
+  }
+} finally {
+  await surface.destroy();
 }
-
-await surface.destroy();

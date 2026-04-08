@@ -9,6 +9,8 @@
     "examples/ink-smoke.tsx",
     "examples/pi-tui-smoke.tsx",
     "examples/pi-tui-live.tsx",
-    "examples/ink-live.tsx"
+    "examples/ink-live.tsx",
+    "examples/islands/counter.island.tsx",
+    "examples/islands/playground.island.tsx"
   ]
 }

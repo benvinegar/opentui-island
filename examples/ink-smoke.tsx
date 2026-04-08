@@ -1,9 +1,6 @@
 /** @jsxImportSource react */
 
-import assert from "node:assert/strict";
 import { render } from "ink-testing-library";
-import { useKeyboard } from "@opentui/react";
-import { createElement, useState } from "react";
 import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
 
 function wait(ms: number) {
@@ -12,36 +9,35 @@ function wait(ms: number) {
   });
 }
 
-function CounterApp() {
-  const [count, setCount] = useState(0);
+async function waitForFrameContains(app: ReturnType<typeof render>, text: string, timeoutMs = 500) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const frame = app.lastFrame() ?? "";
+    if (frame.includes(text)) {
+      return frame;
+    }
 
-  useKeyboard(
-    (event) => {
-      if (event.eventType !== "release" && event.name === "a") {
-        setCount((value) => value + 1);
-      }
-    },
-    { release: true },
-  );
+    await wait(20);
+  }
 
-  return createElement(
-    "box",
-    { style: { width: "100%", height: "100%", paddingLeft: 1 } },
-    createElement("text", { fg: "#00ff88" }, `count:${count}`),
+  throw new Error(
+    `Timed out waiting for frame to contain '${text}'. Last frame:\n${app.lastFrame()}`,
   );
 }
 
-const app = render(<InkOpenTuiSurface tree={<CounterApp />} height={2} width={24} />);
+const app = render(
+  <InkOpenTuiSurface
+    island={{ module: new URL("./islands/counter.island.tsx", import.meta.url) }}
+    height={2}
+    width={24}
+  />,
+);
 
 try {
-  await wait(30);
-  assert(app.lastFrame()?.includes("count:0") ?? false);
+  await waitForFrameContains(app, "count:0");
 
   app.stdin.write("a");
-  await wait(30);
-
-  const frame = app.lastFrame() ?? "";
-  assert(frame.includes("count:1"));
+  const frame = await waitForFrameContains(app, "count:1");
 
   console.log("ink adapter smoke ok");
   console.log(frame);

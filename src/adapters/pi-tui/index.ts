@@ -5,19 +5,16 @@ import {
   type Focusable,
   type Terminal,
 } from "@mariozechner/pi-tui";
-import type { ReactNode } from "react";
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
 import { diffHostFrames } from "../../core/frame-diff.js";
-import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import { createOffscreenOpenTuiHost } from "../../core/offscreen-host.js";
+import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
+import type { OpenTuiIslandSource } from "../../core/island.js";
+import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 import type { HostFrame, HostMouseButton, HostMouseInput } from "../../core/types.js";
 
-export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<
-  CreateOffscreenOpenTuiHostOptions,
-  "size"
-> {
+export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<CreateOpenTuiHostOptions, "size"> {
   height: number;
-  tree: ReactNode;
+  island: OpenTuiIslandSource;
   requestRender?: () => void;
   initialWidth?: number;
   host?: OpenTuiHost;
@@ -157,7 +154,7 @@ function normalizeLines(lines: string[], width: number, height: number) {
   return visible;
 }
 
-/** A fixed-height pi-tui component that hosts one OpenTUI subtree. */
+/** A fixed-height pi-tui component that hosts one OpenTUI island. */
 export class PiTuiOpenTuiSurface implements Component, Focusable {
   wantsKeyRelease = true;
 
@@ -176,7 +173,6 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     host: OpenTuiHost;
     height: number;
     initialWidth: number;
-    tree: ReactNode;
     requestRender?: () => void;
   }) {
     this.host = params.host;
@@ -184,9 +180,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     this.lastWidth = Math.max(1, params.initialWidth);
     this.cachedLines = blankLines(this.lastWidth, this.height);
     this.requestRender = params.requestRender ?? (() => {});
-
-    this.host.mount(params.tree);
-    this.host.blur();
+    void this.host.blur();
   }
 
   setScreenBounds(bounds: PiTuiScreenBounds | null) {
@@ -204,9 +198,9 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   set focused(value: boolean) {
     this._focused = value;
     if (value) {
-      this.host.focus();
+      void this.host.focus();
     } else {
-      this.host.blur();
+      void this.host.blur();
     }
   }
 
@@ -233,7 +227,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       const width = this.pendingWidth;
       this.pendingWidth = null;
       this.lastWidth = width;
-      this.host.resize({ width, height: this.height });
+      await this.host.resize({ width, height: this.height });
       const frame = await this.host.renderFrame();
       this.applyFrame(frame, width);
     }
@@ -253,14 +247,14 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     await this.syncPromise;
   }
 
-  /** Replace the hosted OpenTUI tree and refresh the cached pi-tui output. */
-  async setTree(tree: ReactNode) {
-    this.host.mount(tree);
+  /** Replace the hosted island and refresh the cached pi-tui output. */
+  async setIsland(island: OpenTuiIslandSource) {
+    await this.host.mount(island);
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }
 
-  /** Forward one raw pi-tui input sequence into the hosted OpenTUI subtree. */
+  /** Forward one raw pi-tui input sequence into the hosted OpenTUI island. */
   async sendInput(data: string) {
     if (!this.focused) {
       return;
@@ -270,7 +264,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     await this.sync(this.lastWidth);
   }
 
-  /** Forward one translated mouse event into the hosted OpenTUI subtree. */
+  /** Forward one translated mouse event into the hosted OpenTUI island. */
   async sendMouse(input: HostMouseInput) {
     if (!this.focused) {
       return;
@@ -374,7 +368,7 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
   const initialWidth = Math.max(1, options.initialWidth ?? 1);
   const host =
     options.host ??
-    (await createOffscreenOpenTuiHost({
+    (await createOpenTuiSidecarHost({
       size: {
         width: initialWidth,
         height: options.height,
@@ -383,11 +377,12 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
       otherModifiersMode: options.otherModifiersMode,
     }));
 
-  return new PiTuiOpenTuiSurface({
+  const surface = new PiTuiOpenTuiSurface({
     host,
     height: options.height,
     initialWidth,
-    tree: options.tree,
     requestRender: options.requestRender,
   });
+  await surface.setIsland(options.island);
+  return surface;
 }

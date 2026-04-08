@@ -7,8 +7,28 @@ import {
 import { createTestRenderer } from "@opentui/core/testing";
 import { createRoot, flushSync, type Root } from "@opentui/react";
 import { Readable, Writable } from "node:stream";
-import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "./host.js";
-import type { HostCursor, HostFrame, HostLine, HostMouseInput, HostSpan } from "./types.js";
+import type { ReactNode } from "react";
+import type { HostCursor, HostFrame, HostLine, HostMouseInput, HostSpan } from "../core/types.js";
+
+export interface CreateOffscreenOpenTuiHostOptions {
+  size: {
+    width: number;
+    height: number;
+  };
+  kittyKeyboard?: boolean;
+  otherModifiersMode?: boolean;
+}
+
+export interface OffscreenOpenTuiHost {
+  mount(tree: ReactNode): void;
+  resize(size: { width: number; height: number }): void;
+  focus(): void;
+  blur(): void;
+  sendKey(input: { sequence: string }): Promise<void>;
+  sendMouse(input: HostMouseInput): Promise<void>;
+  renderFrame(): Promise<HostFrame>;
+  destroy(): Promise<void>;
+}
 
 class NullWriteStream extends Writable {
   columns: number;
@@ -103,7 +123,7 @@ function mouseModifiers(input: HostMouseInput) {
 /** Create an offscreen OpenTUI host backed by the built-in test renderer. */
 export async function createOffscreenOpenTuiHost(
   options: CreateOffscreenOpenTuiHostOptions,
-): Promise<OpenTuiHost> {
+): Promise<OffscreenOpenTuiHost> {
   const stdout = new NullWriteStream(options.size.width, options.size.height);
   const stdin = new NullReadStream();
   const rendererSetup = await createTestRenderer({

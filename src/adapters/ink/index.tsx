@@ -1,15 +1,15 @@
 /** @jsxImportSource react */
 
-import { Box, Text, useInput, useWindowSize } from "ink";
+import { Box, Text, useInput, useStdin, useWindowSize } from "ink";
 import type { Key } from "ink";
-import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
-import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import { createOffscreenOpenTuiHost } from "../../core/offscreen-host.js";
+import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
+import type { OpenTuiIslandSource } from "../../core/island.js";
+import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 
-export interface InkOpenTuiSurfaceProps extends Omit<CreateOffscreenOpenTuiHostOptions, "size"> {
-  tree: ReactNode;
+export interface InkOpenTuiSurfaceProps extends Omit<CreateOpenTuiHostOptions, "size"> {
+  island: OpenTuiIslandSource;
   width?: number;
   height: number;
   isActive?: boolean;
@@ -44,9 +44,9 @@ function inputToSequence(input: string, key: Key) {
   return input.length > 0 ? input : undefined;
 }
 
-/** Render an offscreen OpenTUI subtree inside an Ink layout region. */
+/** Render an offscreen OpenTUI island inside an Ink layout region. */
 export function InkOpenTuiSurface({
-  tree,
+  island,
   width,
   height,
   isActive = true,
@@ -55,7 +55,9 @@ export function InkOpenTuiSurface({
   otherModifiersMode,
 }: InkOpenTuiSurfaceProps) {
   const windowSize = useWindowSize();
+  const { isRawModeSupported } = useStdin();
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
+  const inputActive = isActive && isRawModeSupported;
   const hostRef = useRef<OpenTuiHost | null>(null);
   const [lines, setLines] = useState<string[]>(() =>
     normalizeLines([fallback], resolvedWidth, height),
@@ -64,7 +66,7 @@ export function InkOpenTuiSurface({
   const sync = async () => {
     if (!hostRef.current) return;
 
-    hostRef.current.resize({ width: resolvedWidth, height });
+    await hostRef.current.resize({ width: resolvedWidth, height });
     const frame = await hostRef.current.renderFrame();
     setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
   };
@@ -74,7 +76,7 @@ export function InkOpenTuiSurface({
 
     const ensureHost = async () => {
       if (!hostRef.current) {
-        hostRef.current = await createOffscreenOpenTuiHost({
+        hostRef.current = await createOpenTuiSidecarHost({
           size: { width: resolvedWidth, height },
           kittyKeyboard,
           otherModifiersMode,
@@ -83,18 +85,25 @@ export function InkOpenTuiSurface({
 
       if (cancelled || !hostRef.current) return;
 
-      hostRef.current.mount(tree);
-      if (isActive) hostRef.current.focus();
-      else hostRef.current.blur();
+      await hostRef.current.mount(island);
+      if (isActive) await hostRef.current.focus();
+      else await hostRef.current.blur();
       await sync();
     };
 
-    void ensureHost();
+    void ensureHost().catch((error) => {
+      if (cancelled) {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to load OpenTUI island.";
+      setLines(normalizeLines([message], resolvedWidth, height));
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [tree, resolvedWidth, height, kittyKeyboard, otherModifiersMode, isActive]);
+  }, [island, resolvedWidth, height, kittyKeyboard, otherModifiersMode, isActive]);
 
   useEffect(() => {
     return () => {
@@ -108,7 +117,7 @@ export function InkOpenTuiSurface({
 
   useInput(
     (input, key) => {
-      if (!isActive || !hostRef.current) return;
+      if (!inputActive || !hostRef.current) return;
 
       const sequence = inputToSequence(input, key);
       if (!sequence) return;
@@ -118,7 +127,7 @@ export function InkOpenTuiSurface({
         await sync();
       })();
     },
-    { isActive },
+    { isActive: inputActive },
   );
 
   return (

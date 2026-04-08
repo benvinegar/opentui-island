@@ -1,23 +1,21 @@
-import { createOffscreenOpenTuiHost, hostFrameToAnsiLines } from "../src/index.js";
+import { createOpenTuiSidecarHost, hostFrameToAnsiLines } from "../src/index.js";
 
-const host = await createOffscreenOpenTuiHost({
+const host = await createOpenTuiSidecarHost({
   size: {
     width: 24,
     height: 4,
   },
 });
 
-host.mount(
-  <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>
-    <text fg="#ff00ff">host ok</text>
-  </box>,
-);
+try {
+  await host.mount({ module: new URL("./islands/counter.island.tsx", import.meta.url) });
 
-const frame = await host.renderFrame();
-const lines = hostFrameToAnsiLines(frame);
+  const frame = await host.renderFrame();
+  const lines = hostFrameToAnsiLines(frame);
 
-for (const line of lines) {
-  console.log(line);
+  for (const line of lines) {
+    console.log(line);
+  }
+} finally {
+  await host.destroy();
 }
-
-await host.destroy();

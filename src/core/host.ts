@@ -1,15 +1,12 @@
-import type { ReactNode } from "react";
+import type { OpenTuiIslandSource } from "./island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "./types.js";
 
-/** Framework-specific tree value mounted into the embedded OpenTUI renderer. */
-export type HostTree = ReactNode;
-
-/** Common contract for any runtime that can host an OpenTUI subtree offscreen. */
+/** Common contract for any runtime bridge that can host an OpenTUI island. */
 export interface OpenTuiHost {
-  mount(tree: HostTree): void;
-  resize(size: HostSize): void;
-  focus(): void;
-  blur(): void;
+  mount(island: OpenTuiIslandSource): Promise<void>;
+  resize(size: HostSize): Promise<void>;
+  focus(): Promise<void>;
+  blur(): Promise<void>;
   sendKey(input: HostKeyInput): Promise<void>;
   sendMouse(input: HostMouseInput): Promise<void>;
   renderFrame(): Promise<HostFrame>;
@@ -17,10 +14,10 @@ export interface OpenTuiHost {
 }
 
 /** Factory signature for creating one host instance for a specific runtime adapter. */
-export type OpenTuiHostFactory = (size: HostSize) => Promise<OpenTuiHost>;
+export type OpenTuiHostFactory = (options: CreateOpenTuiHostOptions) => Promise<OpenTuiHost>;
 
-/** Options for the first offscreen OpenTUI host implementation. */
-export interface CreateOffscreenOpenTuiHostOptions {
+/** Shared options for creating one OpenTUI host bridge. */
+export interface CreateOpenTuiHostOptions {
   size: HostSize;
   kittyKeyboard?: boolean;
   otherModifiersMode?: boolean;

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { useState } from "react";
 import {
   attachPiTuiMouseSupport,
   createPiTuiOpenTuiSurface,
@@ -73,25 +72,6 @@ async function settle(
   await surface.sync(width);
 }
 
-function MouseFixture() {
-  const [clicks, setClicks] = useState(0);
-  const [scrollDirection, setScrollDirection] = useState("none");
-
-  return (
-    <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
-      <box style={{ width: "100%", height: 1 }} onMouseDown={() => setClicks((value) => value + 1)}>
-        <text>{`clicks:${clicks}`}</text>
-      </box>
-      <box
-        style={{ width: "100%", height: 1 }}
-        onMouseScroll={(event) => setScrollDirection(event.scroll?.direction ?? "none")}
-      >
-        <text>{`scroll:${scrollDirection}`}</text>
-      </box>
-    </box>
-  );
-}
-
 describe("pi-tui mouse adapter", () => {
   test("routes click and scroll events through explicit island bounds", async () => {
     const terminal = new TestTerminal(24, 8);
@@ -102,7 +82,7 @@ describe("pi-tui mouse adapter", () => {
       requestRender: () => {
         tui.requestRender();
       },
-      tree: <MouseFixture />,
+      island: { module: new URL("./fixtures/mouse.island.tsx", import.meta.url) },
     });
 
     surface.setScreenBounds({ row: 2, col: 4, width: 20 });
