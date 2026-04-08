@@ -1,0 +1,21 @@
+{
+  "name": "opentui-host-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Core primitives for hosting OpenTUI component trees inside foreign terminal UI runtimes.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.3"
+  }
+}
