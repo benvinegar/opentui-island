@@ -1,4 +1,4 @@
-# opentui-host-core
+# opentui-island
 
 Experimental host/runtime primitives for rendering OpenTUI component trees inside other terminal UI systems.
 
@@ -41,7 +41,7 @@ And a minimal diff helper for partial repaints:
 
 - `diffHostFrames(previous, next)`
 
-There is also a first `pi-tui` adapter prototype exported from `opentui-host-core/pi-tui`.
+There is also a first `pi-tui` adapter prototype exported from `opentui-island/pi-tui`.
 
 ## Planned follow-up
 

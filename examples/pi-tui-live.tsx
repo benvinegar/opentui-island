@@ -110,7 +110,7 @@ function EmbeddedPlayground() {
 
 const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
-const header = new Text("opentui-host-core pi-tui demo", 1, 0);
+const header = new Text("opentui-island pi-tui demo", 1, 0);
 const help = new Text("Inside the embedded OpenTUI surface: Up/Down move, A increments, Space toggles. App keys: q or Ctrl-C quits.", 1, 0);
 const footer = new Text("Focus is pinned to the embedded OpenTUI surface.", 1, 0);
 
