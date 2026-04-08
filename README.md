@@ -190,6 +190,7 @@ bun run check
 bun run build
 bun run check:node-imports
 bun test
+bun run test:node-integration
 
 bun run smoke
 bun run smoke:pi-tui

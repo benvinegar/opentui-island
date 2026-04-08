@@ -60,13 +60,14 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "check:node-imports": "node --input-type=module -e \"await import('./dist/index.js'); await import('./dist/adapters/pi-tui/index.js'); await import('./dist/adapters/ink/index.js')\"",
     "test": "bun test",
+    "test:node-integration": "bun run build && node ./test/node-integration.mjs",
     "smoke": "bun run build && node ./examples/smoke.mjs",
     "smoke:ink": "bun run build && node ./examples/ink-smoke.mjs",
     "smoke:pi-tui": "bun run build && node ./examples/pi-tui-smoke.mjs",
     "demo:pi-tui": "bun run build && node ./examples/pi-tui-live.mjs",
     "demo:ink": "bun run build && node ./examples/ink-live.mjs",
     "prepack": "bun run build",
-    "prepublishOnly": "bun run check && bun test && bun run build && bun run check:node-imports"
+    "prepublishOnly": "bun run check && bun test && bun run test:node-integration && bun run build && bun run check:node-imports"
   },
   "devDependencies": {
     "@mariozechner/pi-tui": "^0.65.2",
