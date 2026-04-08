@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
-import { createPiTuiOpenTuiSurface } from "../src/pi-tui.js";
+import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
   constructor(

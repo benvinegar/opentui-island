@@ -4,5 +4,11 @@
     "rootDir": "."
   },
   "include": [],
-  "files": ["examples/smoke.tsx", "examples/pi-tui-smoke.tsx", "examples/pi-tui-live.tsx"]
+  "files": [
+    "examples/smoke.tsx",
+    "examples/ink-smoke.tsx",
+    "examples/pi-tui-smoke.tsx",
+    "examples/pi-tui-live.tsx",
+    "examples/ink-live.tsx"
+  ]
 }

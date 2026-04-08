@@ -42,21 +42,26 @@ And a minimal diff helper for partial repaints:
 - `diffHostFrames(previous, next)`
 
 There is also a first `pi-tui` adapter prototype exported from `opentui-island/pi-tui`.
+There is also a first Ink adapter prototype exported from `opentui-island/ink`.
 
 ## Planned follow-up
 
 1. Add an offscreen OpenTUI renderer implementation that can mount a subtree and capture frames.
-2. Add a `pi-tui` adapter package that paints captured frames into a `Component`.
+2. Add richer mouse and layout adapters beyond the current `pi-tui` prototype.
 
 ## Smoke test
 
 ```bash
 bun run smoke
+bun run smoke:ink
 bun run smoke:pi-tui
 bun run demo:pi-tui
+bun run demo:ink
 ```
 
 `demo:pi-tui` launches a real interactive `ProcessTerminal` demo. Press `q` or `Ctrl-C` to quit.
+The live demo supports keyboard, click, and wheel input inside the embedded OpenTUI island.
+`demo:ink` launches a live Ink app that embeds the same OpenTUI island through the Ink adapter.
 
 ## Development
 
@@ -66,6 +71,7 @@ bun run lint
 bun run lint:slop
 bun run format
 bun run format:check
+bun test
 ```
 
 Git installs a `pre-commit` hook via `simple-git-hooks` that runs `bun run check`.

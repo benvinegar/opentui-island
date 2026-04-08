@@ -1,7 +1,10 @@
 import { matchesKey, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
-import { createPiTuiOpenTuiSurface } from "../src/pi-tui.js";
+import {
+  attachPiTuiMouseSupport,
+  createPiTuiOpenTuiSurface,
+} from "../src/adapters/pi-tui/index.js";
 
 const panels = [
   {
@@ -47,7 +50,7 @@ function EmbeddedPlayground() {
   const [selected, setSelected] = useState(0);
   const [count, setCount] = useState(0);
   const [expanded, setExpanded] = useState(true);
-  const [lastKey, setLastKey] = useState("none");
+  const [lastInput, setLastInput] = useState("none");
 
   useKeyboard(
     (event) => {
@@ -55,7 +58,7 @@ function EmbeddedPlayground() {
         return;
       }
 
-      setLastKey(event.name);
+      setLastInput(`key:${event.name}`);
 
       if (event.name === "up") {
         setSelected((value) => (value === 0 ? panels.length - 1 : value - 1));
@@ -80,6 +83,9 @@ function EmbeddedPlayground() {
   );
 
   const panel = panels[selected];
+  const stepSelection = (direction: -1 | 1) => {
+    setSelected((value) => (value + direction + panels.length) % panels.length);
+  };
 
   return (
     <box
@@ -95,13 +101,21 @@ function EmbeddedPlayground() {
         <text fg="#d8b4fe">OpenTUI island inside pi-tui</text>
       </box>
       <box style={{ width: "100%", height: 1 }}>
-        <text fg="#94a3b8">{`count ${count} | panel ${selected + 1}/${panels.length} | last key ${lastKey}`}</text>
+        <text fg="#94a3b8">{`count ${count} | panel ${selected + 1}/${panels.length} | last input ${lastInput}`}</text>
       </box>
       <box style={{ height: 1 }} />
       {panels.map((item, index) => {
         const active = index === selected;
         return (
-          <box key={item.title} style={{ width: "100%", height: 1 }}>
+          <box
+            key={item.title}
+            style={{ width: "100%", height: 1 }}
+            onMouseDown={() => {
+              setSelected(index);
+              setCount((value) => value + 1);
+              setLastInput(`mouse:click:${item.title.toLowerCase()}`);
+            }}
+          >
             <text fg={active ? "#111827" : "#e5e7eb"} bg={active ? "#fbbf24" : undefined}>
               {`${active ? ">" : " "} ${item.title}`}
             </text>
@@ -109,7 +123,20 @@ function EmbeddedPlayground() {
         );
       })}
       <box style={{ height: 1 }} />
-      <box style={{ width: "100%", flexDirection: "column" }}>
+      <box
+        style={{ width: "100%", flexDirection: "column" }}
+        onMouseScroll={(event) => {
+          if (event.scroll?.direction === "up") {
+            stepSelection(-1);
+            setLastInput("mouse:scroll:up");
+          }
+
+          if (event.scroll?.direction === "down") {
+            stepSelection(1);
+            setLastInput("mouse:scroll:down");
+          }
+        }}
+      >
         <text fg="#7dd3fc">
           {expanded ? panel.body : "Press space to hide/show the panel details."}
         </text>
@@ -122,11 +149,15 @@ const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
 const header = new Text("opentui-island pi-tui demo", 1, 0);
 const help = new Text(
-  "Inside the embedded OpenTUI surface: Up/Down move, A increments, Space toggles. App keys: q or Ctrl-C quits.",
+  "Inside the embedded OpenTUI surface: Up/Down move, A increments, Space toggles, click selects, wheel scroll changes panels. App keys: q or Ctrl-C quits.",
   1,
   0,
 );
-const footer = new Text("Focus is pinned to the embedded OpenTUI surface.", 1, 0);
+const footer = new Text(
+  "Mouse support is routed through explicit island bounds plus a pi-tui input listener.",
+  1,
+  0,
+);
 
 const surface = await createPiTuiOpenTuiSurface({
   height: Math.max(10, Math.min(14, terminal.rows - 4)),
@@ -142,6 +173,18 @@ tui.addChild(help);
 tui.addChild(surface);
 tui.addChild(footer);
 tui.setFocus(surface);
+const detachMouseSupport = attachPiTuiMouseSupport(tui, surface);
+
+function syncSurfaceBounds() {
+  const width = Math.max(1, terminal.columns);
+  surface.setScreenBounds({
+    row: header.render(width).length + help.render(width).length,
+    col: 0,
+    width,
+  });
+}
+
+process.stdout.on("resize", syncSurfaceBounds);
 
 let shuttingDown = false;
 const finish = createDeferredPromise<void>();
@@ -152,6 +195,8 @@ async function shutdown() {
   }
 
   shuttingDown = true;
+  detachMouseSupport();
+  process.stdout.off("resize", syncSurfaceBounds);
   await surface.destroy();
   tui.stop();
   finish.resolve();
@@ -168,6 +213,7 @@ tui.addInputListener((data) => {
 
 tui.start();
 await surface.sync(Math.max(1, terminal.columns));
+syncSurfaceBounds();
 
 const autoInput = process.env.PI_TUI_DEMO_AUTO_INPUT?.split(",")
   .map((token) => token.trim().toLowerCase())

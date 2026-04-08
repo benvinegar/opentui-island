@@ -6,11 +6,11 @@ import {
   type Terminal,
 } from "@mariozechner/pi-tui";
 import type { ReactNode } from "react";
-import { hostFrameToAnsiLines, hostLineToAnsi } from "./ansi.js";
-import { diffHostFrames } from "./frame-diff.js";
-import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "./host.js";
-import { createOffscreenOpenTuiHost } from "./offscreen-host.js";
-import type { HostFrame, HostMouseButton, HostMouseInput } from "./types.js";
+import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
+import { diffHostFrames } from "../../core/frame-diff.js";
+import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
+import { createOffscreenOpenTuiHost } from "../../core/offscreen-host.js";
+import type { HostFrame, HostMouseButton, HostMouseInput } from "../../core/types.js";
 
 export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<
   CreateOffscreenOpenTuiHostOptions,

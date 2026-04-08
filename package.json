@@ -10,8 +10,12 @@
       "import": "./dist/index.js"
     },
     "./pi-tui": {
-      "types": "./dist/pi-tui.d.ts",
-      "import": "./dist/pi-tui.js"
+      "types": "./dist/adapters/pi-tui/index.d.ts",
+      "import": "./dist/adapters/pi-tui/index.js"
+    },
+    "./ink": {
+      "types": "./dist/adapters/ink/index.d.ts",
+      "import": "./dist/adapters/ink/index.js"
     }
   },
   "scripts": {
@@ -25,9 +29,12 @@
     "typecheck": "tsc --noEmit",
     "typecheck:examples": "tsc -p tsconfig.examples.json",
     "build": "tsc -p tsconfig.build.json",
+    "test": "bun test",
     "smoke": "bun examples/smoke.tsx",
+    "smoke:ink": "bun examples/ink-smoke.tsx",
     "smoke:pi-tui": "bun examples/pi-tui-smoke.tsx",
-    "demo:pi-tui": "bun examples/pi-tui-live.tsx"
+    "demo:pi-tui": "bun examples/pi-tui-live.tsx",
+    "demo:ink": "bun examples/ink-live.tsx"
   },
   "devDependencies": {
     "@mariozechner/pi-tui": "^0.65.2",
@@ -35,6 +42,8 @@
     "@opentui/react": "^0.1.97",
     "@types/node": "^24.5.2",
     "@types/react": "^19.2.14",
+    "ink": "^7.0.0",
+    "ink-testing-library": "^4.0.0",
     "oxfmt": "^0.44.0",
     "oxlint": "^1.59.0",
     "react": "^19.2.4",
@@ -46,9 +55,13 @@
     "@mariozechner/pi-tui": "^0.65.2",
     "@opentui/core": "^0.1.97",
     "@opentui/react": "^0.1.97",
+    "ink": "^7.0.0",
     "react": "^19.2.4"
   },
   "peerDependenciesMeta": {
+    "ink": {
+      "optional": true
+    },
     "@mariozechner/pi-tui": {
       "optional": true
     }
