@@ -76,4 +76,55 @@ describe("ink adapter", () => {
       app.cleanup();
     }
   });
+
+  test("reports ready and error state through callbacks", async () => {
+    const snapshots: string[] = [];
+    let readyCount = 0;
+    let seenError: Error | null = null;
+
+    const readyApp = render(
+      <InkOpenTuiSurface
+        island={{ module: new URL("./fixtures/counter.island.tsx", import.meta.url) }}
+        height={2}
+        width={24}
+        onReady={() => {
+          readyCount += 1;
+        }}
+        onReadyStateChange={(snapshot) => {
+          snapshots.push(snapshot.state);
+        }}
+      />,
+    );
+
+    try {
+      expect(await waitForFrameContains(readyApp, "count:0")).toContain("count:0");
+      expect(readyCount).toBe(1);
+      expect(snapshots).toContain("ready");
+    } finally {
+      readyApp.unmount();
+      readyApp.cleanup();
+    }
+
+    const errorApp = render(
+      <InkOpenTuiSurface
+        island={{
+          module: new URL("./fixtures/counter.island.tsx", import.meta.url),
+          exportName: "MissingExport",
+        }}
+        height={2}
+        width={24}
+        onError={(error) => {
+          seenError = error;
+        }}
+      />,
+    );
+
+    try {
+      expect(await waitForFrameContains(errorApp, "MissingExport")).toContain("MissingExport");
+      expect(seenError?.message).toContain("MissingExport");
+    } finally {
+      errorApp.unmount();
+      errorApp.cleanup();
+    }
+  });
 });

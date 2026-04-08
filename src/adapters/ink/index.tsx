@@ -10,9 +10,18 @@ import {
   type OpenTuiIslandSource,
   type ResolvedOpenTuiIslandSource,
 } from "../../core/island.js";
+import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 
-export interface InkOpenTuiSurfaceProps extends Omit<CreateOpenTuiHostOptions, "size"> {
+function samePropsJson(
+  left: ResolvedOpenTuiIslandSource["props"],
+  right: ResolvedOpenTuiIslandSource["props"],
+) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+export interface InkOpenTuiSurfaceProps
+  extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
   island: OpenTuiIslandSource;
   width?: number;
   height: number;
@@ -65,6 +74,9 @@ export function InkOpenTuiSurface({
   height,
   isActive = true,
   fallback = "Loading OpenTUI island...",
+  onReady,
+  onError,
+  onReadyStateChange,
   kittyKeyboard,
   otherModifiersMode,
 }: InkOpenTuiSurfaceProps) {
@@ -74,16 +86,29 @@ export function InkOpenTuiSurface({
   const inputActive = isActive && isRawModeSupported;
   const hostRef = useRef<OpenTuiHost | null>(null);
   const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
+  const readyTrackerRef = useRef(new OpenTuiReadyTracker());
   const [lines, setLines] = useState<string[]>(() =>
     normalizeLines([fallback], resolvedWidth, height),
   );
+  readyTrackerRef.current.updateCallbacks({ onReady, onError, onReadyStateChange });
+
+  const toReadyError = (error: unknown) =>
+    error instanceof Error ? error : new Error(String(error));
 
   const sync = async () => {
     if (!hostRef.current) return;
 
-    await hostRef.current.resize({ width: resolvedWidth, height });
-    const frame = await hostRef.current.renderFrame();
-    setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
+    try {
+      await hostRef.current.resize({ width: resolvedWidth, height });
+      const frame = await hostRef.current.renderFrame();
+      setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
+      if (readyTrackerRef.current.getSnapshot().state === "loading") {
+        readyTrackerRef.current.markReady();
+      }
+    } catch (error) {
+      readyTrackerRef.current.markError(toReadyError(error));
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -91,6 +116,16 @@ export function InkOpenTuiSurface({
     const resolvedIsland = resolveOpenTuiIslandSource(island);
 
     const ensureHost = async () => {
+      const previousIsland = mountedIslandRef.current;
+      const sameTarget = hasSameIslandTarget(previousIsland, resolvedIsland);
+      const shouldUpdateProps =
+        sameTarget && !samePropsJson(previousIsland?.props, resolvedIsland.props);
+      const shouldMount = !sameTarget;
+
+      if (!previousIsland || shouldMount || shouldUpdateProps) {
+        readyTrackerRef.current.startLoading();
+      }
+
       if (!hostRef.current) {
         hostRef.current = await createOpenTuiSidecarHost({
           size: { width: resolvedWidth, height },
@@ -101,9 +136,9 @@ export function InkOpenTuiSurface({
 
       if (cancelled || !hostRef.current) return;
 
-      if (hasSameIslandTarget(mountedIslandRef.current, resolvedIsland)) {
+      if (shouldUpdateProps) {
         await hostRef.current.updateProps(resolvedIsland.props);
-      } else {
+      } else if (shouldMount) {
         await hostRef.current.mount(resolvedIsland);
       }
 
@@ -118,7 +153,9 @@ export function InkOpenTuiSurface({
         return;
       }
 
-      const message = error instanceof Error ? error.message : "Failed to load OpenTUI island.";
+      const readyError = toReadyError(error);
+      readyTrackerRef.current.markError(readyError);
+      const message = readyError.message || "Failed to load OpenTUI island.";
       setLines(normalizeLines([message], resolvedWidth, height));
     });
 

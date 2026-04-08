@@ -17,6 +17,11 @@ export type {
   OpenTuiIslandValue,
   ResolvedOpenTuiIslandSource,
 } from "./core/island.js";
+export type {
+  OpenTuiReadyCallbacks,
+  OpenTuiReadySnapshot,
+  OpenTuiReadyState,
+} from "./core/ready.js";
 export type { CreateOpenTuiSidecarHostOptions } from "./sidecar/client.js";
 export type { HostFrameDiff, HostLinePatch } from "./core/frame-diff.js";
 export { hostFrameToAnsiLines, hostLineToAnsi, hostSpanToAnsi } from "./core/ansi.js";

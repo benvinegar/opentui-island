@@ -14,10 +14,12 @@ import {
   type OpenTuiIslandSource,
   type ResolvedOpenTuiIslandSource,
 } from "../../core/island.js";
+import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 import type { HostFrame, HostMouseButton, HostMouseInput } from "../../core/types.js";
 
-export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<CreateOpenTuiHostOptions, "size"> {
+export interface CreatePiTuiOpenTuiSurfaceOptions
+  extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
   height: number;
   island: OpenTuiIslandSource;
   requestRender?: () => void;
@@ -183,6 +185,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   private pendingWidth: number | null = null;
   private _focused = false;
   private currentIsland: ResolvedOpenTuiIslandSource | null = null;
+  private readonly readyTracker: OpenTuiReadyTracker;
   private screenBounds: PiTuiScreenBounds | null = null;
 
   constructor(params: {
@@ -190,13 +193,15 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     height: number;
     initialWidth: number;
     requestRender?: () => void;
+    readyCallbacks?: OpenTuiReadyCallbacks;
   }) {
     this.host = params.host;
     this.height = params.height;
     this.lastWidth = Math.max(1, params.initialWidth);
     this.cachedLines = blankLines(this.lastWidth, this.height);
     this.requestRender = params.requestRender ?? (() => {});
-    void this.host.blur();
+    this.readyTracker = new OpenTuiReadyTracker(params.readyCallbacks);
+    this.runInBackground(this.host.blur());
   }
 
   setScreenBounds(bounds: PiTuiScreenBounds | null) {
@@ -211,13 +216,44 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     return this._focused;
   }
 
+  get ready() {
+    return this.readyTracker.isReady();
+  }
+
+  get readyState() {
+    return this.readyTracker.getSnapshot().state;
+  }
+
+  get readyError() {
+    return this.readyTracker.getSnapshot().error;
+  }
+
   set focused(value: boolean) {
     this._focused = value;
     if (value) {
-      void this.host.focus();
+      this.runInBackground(this.host.focus());
     } else {
-      void this.host.blur();
+      this.runInBackground(this.host.blur());
     }
+  }
+
+  /** Resolve once the current load cycle has produced a ready frame. */
+  async waitUntilReady() {
+    if (this.ready) {
+      return;
+    }
+
+    await this.readyTracker.waitUntilReady();
+  }
+
+  private toReadyError(error: unknown) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+
+  private runInBackground(operation: Promise<unknown>) {
+    void operation.catch((error) => {
+      this.readyTracker.markError(this.toReadyError(error));
+    });
   }
 
   private applyFrame(frame: HostFrame, width: number) {
@@ -260,21 +296,35 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       });
     }
 
-    await this.syncPromise;
+    try {
+      await this.syncPromise;
+      if (this.readyState === "loading") {
+        this.readyTracker.markReady();
+      }
+    } catch (error) {
+      this.readyTracker.markError(this.toReadyError(error));
+      throw error;
+    }
   }
 
   /** Replace the hosted island and refresh the cached pi-tui output. */
   async setIsland(island: OpenTuiIslandSource) {
     const resolvedIsland = resolveOpenTuiIslandSource(island);
-    if (hasSameIslandTarget(this.currentIsland, resolvedIsland)) {
-      await this.updateProps(resolvedIsland.props);
-      return;
-    }
+    this.readyTracker.startLoading();
+    try {
+      if (hasSameIslandTarget(this.currentIsland, resolvedIsland)) {
+        await this.updateProps(resolvedIsland.props);
+        return;
+      }
 
-    await this.host.mount(resolvedIsland);
-    this.currentIsland = resolvedIsland;
-    this.cachedFrame = undefined;
-    await this.sync(this.lastWidth);
+      await this.host.mount(resolvedIsland);
+      this.currentIsland = resolvedIsland;
+      this.cachedFrame = undefined;
+      await this.sync(this.lastWidth);
+    } catch (error) {
+      this.readyTracker.markError(this.toReadyError(error));
+      throw error;
+    }
   }
 
   /** Update the mounted island props without swapping to a different module export. */
@@ -283,13 +333,19 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       throw new Error("OpenTUI island has not been mounted yet.");
     }
 
-    await this.host.updateProps(props);
-    this.currentIsland = {
-      ...this.currentIsland,
-      props,
-    };
-    this.cachedFrame = undefined;
-    await this.sync(this.lastWidth);
+    this.readyTracker.startLoading();
+    try {
+      await this.host.updateProps(props);
+      this.currentIsland = {
+        ...this.currentIsland,
+        props,
+      };
+      this.cachedFrame = undefined;
+      await this.sync(this.lastWidth);
+    } catch (error) {
+      this.readyTracker.markError(this.toReadyError(error));
+      throw error;
+    }
   }
 
   /** Forward one raw pi-tui input sequence into the hosted OpenTUI island. */
@@ -357,13 +413,13 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   invalidate() {
     this.cachedFrame = undefined;
     this.cachedLines = blankLines(this.lastWidth, this.height);
-    void this.sync(this.lastWidth);
+    this.runInBackground(this.sync(this.lastWidth));
   }
 
   render(width: number) {
     const normalizedWidth = Math.max(1, width);
     if (normalizedWidth !== this.lastWidth || !this.cachedFrame) {
-      void this.sync(normalizedWidth);
+      this.runInBackground(this.sync(normalizedWidth));
     }
 
     return normalizeLines(this.cachedLines, normalizedWidth, this.height);
@@ -420,7 +476,17 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
     height: options.height,
     initialWidth,
     requestRender: options.requestRender,
+    readyCallbacks: {
+      onReady: options.onReady,
+      onError: options.onError,
+      onReadyStateChange: options.onReadyStateChange,
+    },
   });
-  await surface.setIsland(options.island);
-  return surface;
+  try {
+    await surface.setIsland(options.island);
+    return surface;
+  } catch (error) {
+    await surface.destroy();
+    throw error;
+  }
 }
