@@ -108,9 +108,37 @@ tui.start();
 await surface.sync(terminal.columns);
 
 await surface.updateProps({ label: "beta" });
+await surface.waitUntilReady();
+
+if (surface.readyState === "error") {
+  throw surface.readyError;
+}
 ```
 
 For mouse input in `pi-tui`, also call `attachPiTuiMouseSupport(tui, surface)` and set explicit island bounds with `surface.setScreenBounds(...)`. See [`examples/pi-tui-live.mjs`](examples/pi-tui-live.mjs).
+
+## Use in Pi
+
+Pi extensions can also host `opentui-island` surfaces.
+
+The repo keeps Pi examples in [`examples/pi/`](examples/pi/), with reusable island modules in [`examples/islands/`](examples/islands/).
+
+Typical flow:
+
+```bash
+bun run build
+pi -e ./examples/pi/index.ts
+```
+
+Then inside Pi try:
+
+```text
+/opentui-counter-demo
+/opentui-diff-demo ./examples/pi/sample.diff
+/opentui-mouse-demo
+```
+
+The Pi example also demonstrates replacing Pi's inline `edit` result with a custom diff renderer while keeping the built-in edit behavior. See [`examples/pi/README.md`](examples/pi/README.md).
 
 ## Use in Ink
 
@@ -125,8 +153,43 @@ render(
     height={3}
     width={24}
     island={{ module: new URL("./counter.island.tsx", import.meta.url), props: { label: "alpha" } }}
+    onReady={() => {
+      console.log("island ready");
+    }}
+    onError={(error) => {
+      console.error(error);
+    }}
   />,
 );
+```
+
+## Ready state
+
+`pi-tui` surfaces expose ready state directly:
+
+```ts
+surface.ready;
+surface.readyState;
+surface.readyError;
+await surface.waitUntilReady();
+```
+
+Ink surfaces expose lifecycle callbacks:
+
+```tsx
+<InkOpenTuiSurface
+  island={island}
+  height={3}
+  onReady={() => {
+    console.log("ready");
+  }}
+  onError={(error) => {
+    console.error(error);
+  }}
+  onReadyStateChange={(snapshot) => {
+    console.log(snapshot.state, snapshot.error);
+  }}
+/>
 ```
 
 ## Update props

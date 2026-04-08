@@ -4,5 +4,10 @@
     "rootDir": "."
   },
   "include": [],
-  "files": ["examples/islands/counter.island.tsx", "examples/islands/playground.island.tsx"]
+  "files": [
+    "examples/islands/counter.island.tsx",
+    "examples/islands/playground.island.tsx",
+    "examples/islands/diff-viewer.island.tsx",
+    "examples/islands/mouse-playground.island.tsx"
+  ]
 }

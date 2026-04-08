@@ -1,0 +1,16 @@
+diff --git a/src/app.ts b/src/app.ts
+index 2f4b6be..fd8b88e 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -12,8 +12,10 @@ export function renderStatus(branch: string | null) {
+   const label = branch ? `on ${branch}` : "detached";
+-  const accent = theme.fg("muted", label);
++  const accent = theme.fg("accent", label);
++  const dirty = repo.isDirty() ? theme.fg("warning", " • dirty") : "";
+ 
+   return (
+-    <Text>{accent}</Text>
++    <Text>{accent}{dirty}</Text>
++    <Text>{theme.fg("dim", "Press / to explore commands")}</Text>
+   );
+ }
