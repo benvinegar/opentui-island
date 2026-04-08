@@ -82,7 +82,15 @@ function EmbeddedPlayground() {
   const panel = panels[selected];
 
   return (
-    <box style={{ width: "100%", height: "100%", flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
+    <box
+      style={{
+        width: "100%",
+        height: "100%",
+        flexDirection: "column",
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+    >
       <box style={{ width: "100%", height: 1 }}>
         <text fg="#d8b4fe">OpenTUI island inside pi-tui</text>
       </box>
@@ -102,7 +110,9 @@ function EmbeddedPlayground() {
       })}
       <box style={{ height: 1 }} />
       <box style={{ width: "100%", flexDirection: "column" }}>
-        <text fg="#7dd3fc">{expanded ? panel.body : "Press space to hide/show the panel details."}</text>
+        <text fg="#7dd3fc">
+          {expanded ? panel.body : "Press space to hide/show the panel details."}
+        </text>
       </box>
     </box>
   );
@@ -111,7 +121,11 @@ function EmbeddedPlayground() {
 const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
 const header = new Text("opentui-island pi-tui demo", 1, 0);
-const help = new Text("Inside the embedded OpenTUI surface: Up/Down move, A increments, Space toggles. App keys: q or Ctrl-C quits.", 1, 0);
+const help = new Text(
+  "Inside the embedded OpenTUI surface: Up/Down move, A increments, Space toggles. App keys: q or Ctrl-C quits.",
+  1,
+  0,
+);
 const footer = new Text("Focus is pinned to the embedded OpenTUI surface.", 1, 0);
 
 const surface = await createPiTuiOpenTuiSurface({

@@ -61,9 +61,15 @@ function cursorsEqual(left: HostCursor | undefined, right: HostCursor | undefine
 }
 
 /** Compare two captured frames and return only the rows that need repainting. */
-export function diffHostFrames(previous: HostFrame | null | undefined, next: HostFrame): HostFrameDiff {
+export function diffHostFrames(
+  previous: HostFrame | null | undefined,
+  next: HostFrame,
+): HostFrameDiff {
   const fullRepaint =
-    !previous || previous.width !== next.width || previous.height !== next.height || previous.lines.length !== next.lines.length;
+    !previous ||
+    previous.width !== next.width ||
+    previous.height !== next.height ||
+    previous.lines.length !== next.lines.length;
 
   if (fullRepaint) {
     return {

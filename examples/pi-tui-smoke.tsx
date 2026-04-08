@@ -30,11 +30,14 @@ class NullTerminal implements Terminal {
 function CounterApp() {
   const [count, setCount] = useState(0);
 
-  useKeyboard((event) => {
-    if (event.eventType !== "release" && event.name === "a") {
-      setCount((value) => value + 1);
-    }
-  }, { release: true });
+  useKeyboard(
+    (event) => {
+      if (event.eventType !== "release" && event.name === "a") {
+        setCount((value) => value + 1);
+      }
+    },
+    { release: true },
+  );
 
   return (
     <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>

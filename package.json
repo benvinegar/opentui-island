@@ -15,6 +15,9 @@
     }
   },
   "scripts": {
+    "lint": "oxlint . --deny-warnings",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "typecheck": "tsc --noEmit",
     "typecheck:examples": "tsc -p tsconfig.examples.json",
     "build": "tsc -p tsconfig.build.json",
@@ -28,6 +31,8 @@
     "@opentui/react": "^0.1.97",
     "@types/node": "^24.5.2",
     "@types/react": "^19.2.14",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0",
     "react": "^19.2.4",
     "typescript": "^5.9.3"
   },

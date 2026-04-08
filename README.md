@@ -57,3 +57,11 @@ bun run demo:pi-tui
 ```
 
 `demo:pi-tui` launches a real interactive `ProcessTerminal` demo. Press `q` or `Ctrl-C` to quit.
+
+## Development
+
+```bash
+bun run lint
+bun run format
+bun run format:check
+```

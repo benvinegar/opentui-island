@@ -6,7 +6,10 @@ import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "./host.js";
 import { createOffscreenOpenTuiHost } from "./offscreen-host.js";
 import type { HostFrame } from "./types.js";
 
-export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<CreateOffscreenOpenTuiHostOptions, "size"> {
+export interface CreatePiTuiOpenTuiSurfaceOptions extends Omit<
+  CreateOffscreenOpenTuiHostOptions,
+  "size"
+> {
   height: number;
   tree: ReactNode;
   requestRender?: () => void;
@@ -21,7 +24,9 @@ function blankLines(width: number, height: number) {
 
 function normalizeLines(lines: string[], width: number, height: number) {
   const normalizedWidth = Math.max(1, width);
-  const visible = lines.slice(0, height).map((line) => truncateToWidth(line, normalizedWidth, "...", true));
+  const visible = lines
+    .slice(0, height)
+    .map((line) => truncateToWidth(line, normalizedWidth, "...", true));
 
   while (visible.length < height) {
     visible.push(" ".repeat(normalizedWidth));

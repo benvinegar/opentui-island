@@ -1,4 +1,9 @@
-import { TextAttributes, getBaseAttributes, type CapturedFrame, type CapturedSpan } from "@opentui/core";
+import {
+  TextAttributes,
+  getBaseAttributes,
+  type CapturedFrame,
+  type CapturedSpan,
+} from "@opentui/core";
 import { createTestRenderer } from "@opentui/core/testing";
 import { createRoot, flushSync, type Root } from "@opentui/react";
 import { Readable, Writable } from "node:stream";
@@ -16,7 +21,11 @@ class NullWriteStream extends Writable {
     this.rows = height;
   }
 
-  override _write(_chunk: unknown, _encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+  override _write(
+    _chunk: unknown,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ) {
     callback();
   }
 }
@@ -31,7 +40,9 @@ class NullReadStream extends Readable {
   }
 }
 
-function cursorFromRenderer(renderer: { getCursorState: () => { x: number; y: number; visible: boolean } }): HostCursor {
+function cursorFromRenderer(renderer: {
+  getCursorState: () => { x: number; y: number; visible: boolean };
+}): HostCursor {
   const cursor = renderer.getCursorState();
   return {
     x: cursor.x,
