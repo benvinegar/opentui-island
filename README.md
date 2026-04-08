@@ -61,7 +61,11 @@ bun run demo:pi-tui
 ## Development
 
 ```bash
+bun run check
 bun run lint
+bun run lint:slop
 bun run format
 bun run format:check
 ```
+
+Git installs a `pre-commit` hook via `simple-git-hooks` that runs `bun run check`.

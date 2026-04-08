@@ -15,7 +15,11 @@
     }
   },
   "scripts": {
+    "prepare": "simple-git-hooks",
+    "check": "bun run lint && bun run lint:slop && bun run format:check && bun run typecheck && bun run typecheck:examples",
     "lint": "oxlint . --deny-warnings",
+    "lint:slop": "slop-scan scan . --lint && bun run lint:slop:check",
+    "lint:slop:check": "slop-scan scan . --json | node scripts/check-slop-findings.mjs",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "typecheck": "tsc --noEmit",
@@ -34,6 +38,8 @@
     "oxfmt": "^0.44.0",
     "oxlint": "^1.59.0",
     "react": "^19.2.4",
+    "simple-git-hooks": "^2.13.1",
+    "slop-scan": "^0.1.2",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
@@ -46,6 +52,9 @@
     "@mariozechner/pi-tui": {
       "optional": true
     }
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun run check"
   },
   "engines": {
     "bun": ">=1.3.10"
