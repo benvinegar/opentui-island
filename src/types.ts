@@ -1,11 +1,17 @@
-/** One styled terminal cell captured from an embedded OpenTUI surface. */
-export interface HostCell {
-  char: string;
+/** One styled terminal text span captured from an embedded OpenTUI surface. */
+export interface HostSpan {
+  text: string;
+  width: number;
   fg?: string;
   bg?: string;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+}
+
+/** One rendered line in the embedded terminal surface. */
+export interface HostLine {
+  spans: HostSpan[];
 }
 
 /** Cursor state reported by the embedded renderer. */
@@ -19,7 +25,7 @@ export interface HostCursor {
 export interface HostFrame {
   width: number;
   height: number;
-  rows: HostCell[][];
+  lines: HostLine[];
   cursor?: HostCursor;
 }
 
@@ -28,12 +34,17 @@ export interface HostKeyInput {
   sequence: string;
 }
 
+export type HostMouseEventType = "down" | "up" | "move" | "drag" | "scroll";
+export type HostMouseScrollDirection = "up" | "down" | "left" | "right";
+export type HostMouseButton = 0 | 1 | 2 | 64 | 65 | 66 | 67;
+
 /** Host-facing mouse event with coordinates local to the embedded surface. */
 export interface HostMouseInput {
+  type: HostMouseEventType;
   x: number;
   y: number;
-  button?: number;
-  scrollY?: number;
+  button?: HostMouseButton;
+  direction?: HostMouseScrollDirection;
   shift?: boolean;
   alt?: boolean;
   ctrl?: boolean;

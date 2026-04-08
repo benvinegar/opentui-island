@@ -12,10 +12,24 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "smoke": "bun examples/smoke.tsx"
   },
   "devDependencies": {
+    "@opentui/core": "^0.1.97",
+    "@opentui/react": "^0.1.97",
     "@types/node": "^24.5.2",
+    "@types/react": "^19.2.14",
+    "react": "^19.2.4",
     "typescript": "^5.9.3"
-  }
+  },
+  "peerDependencies": {
+    "@opentui/core": "^0.1.97",
+    "@opentui/react": "^0.1.97",
+    "react": "^19.2.4"
+  },
+  "engines": {
+    "bun": ">=1.3.10"
+  },
+  "packageManager": "bun@1.3.10"
 }
