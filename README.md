@@ -16,7 +16,23 @@ Runtime note: the current implementation is Bun-only because `@opentui/core` dep
 - Capture the subtree as styled terminal rows that another runtime can repaint.
 - Reuse the same OpenTUI tree across multiple host runtimes.
 
-## Quick start
+## Install
+
+For `pi-tui`:
+
+```bash
+bun add opentui-island react @opentui/core @opentui/react @mariozechner/pi-tui
+```
+
+For Ink:
+
+```bash
+bun add opentui-island react @opentui/core @opentui/react ink
+```
+
+`@mariozechner/pi-tui` and `ink` are optional peers. Install the host runtime you plan to use.
+
+## Try the demos
 
 Clone the repo and run the examples:
 
@@ -138,13 +154,11 @@ The Ink adapter currently forwards keyboard input. Because the surrounding file 
 - OpenTUI renders the hosted subtree offscreen
 - the bridge captures a frame, serializes it to terminal lines, and forwards input back in
 
-## Repo layout
+## Package entrypoints
 
-- `src/core/` - host contracts, offscreen host, ANSI serialization, frame diffing
-- `src/adapters/pi-tui/` - `pi-tui` surface and mouse bridge
-- `src/adapters/ink/` - Ink surface component
-- `examples/` - smoke scripts and live demos
-- `test/` - adapter integration coverage
+- `opentui-island` - low-level host primitives and ANSI/frame helpers
+- `opentui-island/pi-tui` - `pi-tui` surface and mouse bridge
+- `opentui-island/ink` - Ink surface component
 
 ## Status
 
@@ -177,3 +191,7 @@ Git installs a `pre-commit` hook via `simple-git-hooks` that runs `bun run check
 
 - Bugs and feature requests: [GitHub issues](https://github.com/benvinegar/opentui-island/issues)
 - Reference examples: [`examples/`](examples)
+
+## License
+
+[MIT](LICENSE)

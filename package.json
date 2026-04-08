@@ -1,9 +1,32 @@
 {
   "name": "opentui-island",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Core primitives for hosting OpenTUI component trees inside foreign terminal UI runtimes.",
+  "version": "0.1.0",
+  "description": "Embed OpenTUI component trees inside host terminal UI runtimes like pi-tui and Ink.",
+  "keywords": [
+    "ink",
+    "opentui",
+    "pi-tui",
+    "react",
+    "terminal",
+    "tui"
+  ],
+  "homepage": "https://github.com/benvinegar/opentui-island#readme",
+  "bugs": {
+    "url": "https://github.com/benvinegar/opentui-island/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benvinegar/opentui-island.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,9 +41,13 @@
       "import": "./dist/adapters/ink/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "prepare": "simple-git-hooks",
     "check": "bun run lint && bun run lint:slop && bun run format:check && bun run typecheck && bun run typecheck:examples",
+    "check:pack": "npm pack --json --dry-run",
     "lint": "oxlint . --deny-warnings",
     "lint:slop": "slop-scan scan . --lint && bun run lint:slop:check",
     "lint:slop:check": "slop-scan scan . --json | node scripts/check-slop-findings.mjs",
@@ -28,13 +55,15 @@
     "format:check": "oxfmt --check .",
     "typecheck": "tsc --noEmit",
     "typecheck:examples": "tsc -p tsconfig.examples.json",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "bun test",
     "smoke": "bun examples/smoke.tsx",
     "smoke:ink": "bun examples/ink-smoke.tsx",
     "smoke:pi-tui": "bun examples/pi-tui-smoke.tsx",
     "demo:pi-tui": "bun examples/pi-tui-live.tsx",
-    "demo:ink": "bun examples/ink-live.tsx"
+    "demo:ink": "bun examples/ink-live.tsx",
+    "prepack": "bun run build",
+    "prepublishOnly": "bun run check && bun test"
   },
   "devDependencies": {
     "@mariozechner/pi-tui": "^0.65.2",
