@@ -1,6 +1,6 @@
 {
   "name": "opentui-island",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Embed OpenTUI islands inside Node host terminal UIs like pi-tui and Ink via a Bun sidecar.",
   "keywords": [
     "bun",
