@@ -162,6 +162,8 @@ export async function createOffscreenOpenTuiHost(
     async renderFrame() {
       ensureActive();
       await rendererSetup.renderOnce();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await rendererSetup.renderOnce();
       return frameFromCaptured(rendererSetup.captureSpans(), rendererSetup.renderer);
     },
     async destroy() {

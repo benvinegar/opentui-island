@@ -41,6 +41,8 @@ And a minimal diff helper for partial repaints:
 
 - `diffHostFrames(previous, next)`
 
+There is also a first `pi-tui` adapter prototype exported from `opentui-host-core/pi-tui`.
+
 ## Planned follow-up
 
 1. Add an offscreen OpenTUI renderer implementation that can mount a subtree and capture frames.
@@ -50,4 +52,5 @@ And a minimal diff helper for partial repaints:
 
 ```bash
 bun run smoke
+bun run smoke:pi-tui
 ```
