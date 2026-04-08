@@ -138,14 +138,6 @@ The Ink adapter currently forwards keyboard input. Because the surrounding file 
 - OpenTUI renders the hosted subtree offscreen
 - the bridge captures a frame, serializes it to terminal lines, and forwards input back in
 
-Current building blocks:
-
-- `createOffscreenOpenTuiHost(...)` mounts an OpenTUI tree and captures frames.
-- `hostFrameToAnsiLines(...)` converts a captured frame into ANSI rows.
-- `diffHostFrames(...)` reports per-line changes for hosts that want partial repaint logic.
-- `createPiTuiOpenTuiSurface(...)` exposes the hosted tree as a fixed-height `pi-tui` component.
-- `OpenTuiInkSurface` renders the hosted tree inside an Ink layout region.
-
 ## Repo layout
 
 - `src/core/` - host contracts, offscreen host, ANSI serialization, frame diffing
