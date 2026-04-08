@@ -37,11 +37,14 @@ It also includes ANSI serialization helpers so host runtimes like `pi-tui` can p
 - `hostLineToAnsi(...)`
 - `hostFrameToAnsiLines(...)`
 
+And a minimal diff helper for partial repaints:
+
+- `diffHostFrames(previous, next)`
+
 ## Planned follow-up
 
 1. Add an offscreen OpenTUI renderer implementation that can mount a subtree and capture frames.
-2. Add a frame diff layer so hosts can repaint only dirty rows.
-3. Add a `pi-tui` adapter package that paints captured frames into a `Component`.
+2. Add a `pi-tui` adapter package that paints captured frames into a `Component`.
 
 ## Smoke test
 
