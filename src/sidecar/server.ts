@@ -1,35 +1,84 @@
-import { createElement, isValidElement, type ComponentType } from "react";
+import {
+  createElement,
+  isValidElement,
+  useState,
+  type ComponentType,
+  type ReactElement,
+} from "react";
 import { createInterface } from "node:readline";
+import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { OffscreenOpenTuiHost } from "./offscreen-host.js";
 import { createOffscreenOpenTuiHost } from "./offscreen-host.js";
 import type { OpenTuiSidecarRequest, OpenTuiSidecarResponse } from "./protocol.js";
 
 let host: OffscreenOpenTuiHost | null = null;
 
+interface LoadedIsland {
+  acceptsProps: boolean;
+  render: () => ReactElement;
+  source: ResolvedOpenTuiIslandSource;
+  updateProps: (props?: OpenTuiIslandProps) => void;
+}
+
+let loadedIsland: LoadedIsland | null = null;
+
 function writeResponse(response: OpenTuiSidecarResponse) {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
-async function loadIslandTree(
-  moduleSpecifier: string,
-  exportName: string,
-  props?: Record<string, unknown>,
-) {
-  const loaded = (await import(moduleSpecifier)) as Record<string, unknown>;
-  const exported = loaded[exportName];
+async function loadIslandTree(source: ResolvedOpenTuiIslandSource) {
+  const loaded = (await import(source.module)) as Record<string, unknown>;
+  const exported = loaded[source.exportName];
   if (!exported) {
-    throw new Error(`Island export '${exportName}' was not found in '${moduleSpecifier}'.`);
+    throw new Error(`Island export '${source.exportName}' was not found in '${source.module}'.`);
   }
 
   if (isValidElement(exported)) {
-    return exported;
+    if (source.props && Object.keys(source.props).length > 0) {
+      throw new Error(
+        `Island export '${source.exportName}' is a React element and cannot receive props. Export a component to use mount props or updateProps().`,
+      );
+    }
+
+    return {
+      acceptsProps: false,
+      render: () => exported,
+      source,
+      updateProps: (props) => {
+        if (props && Object.keys(props).length > 0) {
+          throw new Error(
+            `Island export '${source.exportName}' does not accept prop updates because it resolves to a React element.`,
+          );
+        }
+      },
+    } satisfies LoadedIsland;
   }
 
   if (typeof exported !== "function") {
-    throw new Error(`Island export '${exportName}' must be a component or React element.`);
+    throw new Error(`Island export '${source.exportName}' must be a component or React element.`);
   }
 
-  return createElement(exported as ComponentType<Record<string, unknown>>, props ?? {});
+  let setCurrentProps: ((props?: OpenTuiIslandProps) => void) | null = null;
+  const Component = exported as ComponentType<Record<string, unknown>>;
+
+  function IslandComponentRoot() {
+    const [currentProps, updateCurrentProps] = useState(source.props);
+    setCurrentProps = updateCurrentProps;
+    return createElement(Component, (currentProps ?? {}) as Record<string, unknown>);
+  }
+
+  return {
+    acceptsProps: true,
+    render: () => createElement(IslandComponentRoot),
+    source,
+    updateProps: (props) => {
+      if (!setCurrentProps) {
+        throw new Error("OpenTUI island props are not ready yet.");
+      }
+
+      setCurrentProps(props);
+    },
+  } satisfies LoadedIsland;
 }
 
 function ensureHost() {
@@ -40,6 +89,19 @@ function ensureHost() {
   return host;
 }
 
+function ensureLoadedIsland() {
+  if (!loadedIsland) {
+    throw new Error("OpenTUI island has not been mounted yet.");
+  }
+
+  return loadedIsland;
+}
+
+function renderLoadedIsland() {
+  const island = ensureLoadedIsland();
+  ensureHost().mount(island.render());
+}
+
 async function handleRequest(request: OpenTuiSidecarRequest) {
   switch (request.method) {
     case "create": {
@@ -48,15 +110,24 @@ async function handleRequest(request: OpenTuiSidecarRequest) {
       }
 
       host = await createOffscreenOpenTuiHost(request.params);
+      loadedIsland = null;
       return undefined;
     }
     case "mount": {
-      const tree = await loadIslandTree(
-        request.params.island.module,
-        request.params.island.exportName,
-        request.params.island.props,
-      );
-      ensureHost().mount(tree);
+      loadedIsland = await loadIslandTree(request.params.island);
+      renderLoadedIsland();
+      return undefined;
+    }
+    case "updateProps": {
+      const island = ensureLoadedIsland();
+      island.updateProps(request.params.props);
+      loadedIsland = {
+        ...island,
+        source: {
+          ...island.source,
+          props: request.params.props,
+        },
+      };
       return undefined;
     }
     case "resize": {
@@ -87,6 +158,8 @@ async function handleRequest(request: OpenTuiSidecarRequest) {
         await host.destroy();
         host = null;
       }
+
+      loadedIsland = null;
 
       return undefined;
     }
@@ -131,5 +204,6 @@ process.stdin.on("end", async () => {
   if (host) {
     await host.destroy();
   }
+  loadedIsland = null;
   process.exit(0);
 });

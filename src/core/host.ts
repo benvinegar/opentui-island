@@ -1,9 +1,10 @@
-import type { OpenTuiIslandSource } from "./island.js";
+import type { OpenTuiIslandProps, OpenTuiIslandSource } from "./island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "./types.js";
 
 /** Common contract for any runtime bridge that can host an OpenTUI island. */
 export interface OpenTuiHost {
   mount(island: OpenTuiIslandSource): Promise<void>;
+  updateProps(props?: OpenTuiIslandProps): Promise<void>;
   resize(size: HostSize): Promise<void>;
   focus(): Promise<void>;
   blur(): Promise<void>;

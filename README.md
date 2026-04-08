@@ -55,7 +55,7 @@ An island is a separate module that the Bun sidecar can import:
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
 
-export default function CounterIsland() {
+export default function CounterIsland({ label = "default" }: { label?: string }) {
   const [count, setCount] = useState(0);
 
   useKeyboard(
@@ -69,7 +69,7 @@ export default function CounterIsland() {
 
   return (
     <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>
-      <text fg="#00ff88">{`count:${count}`}</text>
+      <text fg="#00ff88">{`label:${label} count:${count}`}</text>
     </box>
   );
 }
@@ -88,7 +88,7 @@ const surface = await createPiTuiOpenTuiSurface({
   height: 4,
   initialWidth: terminal.columns,
   requestRender: () => tui.requestRender(),
-  island: { module: new URL("./counter.island.tsx", import.meta.url) },
+  island: { module: new URL("./counter.island.tsx", import.meta.url), props: { label: "alpha" } },
 });
 
 tui.addChild(surface);
@@ -106,6 +106,8 @@ tui.addInputListener((data) => {
 
 tui.start();
 await surface.sync(terminal.columns);
+
+await surface.updateProps({ label: "beta" });
 ```
 
 For mouse input in `pi-tui`, also call `attachPiTuiMouseSupport(tui, surface)` and set explicit island bounds with `surface.setScreenBounds(...)`. See [`examples/pi-tui-live.mjs`](examples/pi-tui-live.mjs).
@@ -122,9 +124,26 @@ render(
   <InkOpenTuiSurface
     height={3}
     width={24}
-    island={{ module: new URL("./counter.island.tsx", import.meta.url) }}
+    island={{ module: new URL("./counter.island.tsx", import.meta.url), props: { label: "alpha" } }}
   />,
 );
+```
+
+## Update props
+
+Low-level hosts can update props after mount without swapping to a different island module:
+
+```ts
+const host = await createOpenTuiSidecarHost({
+  size: { width: 24, height: 4 },
+});
+
+await host.mount({
+  module: new URL("./counter.island.tsx", import.meta.url),
+  props: { label: "alpha" },
+});
+
+await host.updateProps({ label: "beta" });
 ```
 
 ## Try the demos

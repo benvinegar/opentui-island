@@ -5,7 +5,11 @@ import type { Key } from "ink";
 import { useEffect, useRef, useState } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import type { OpenTuiIslandSource } from "../../core/island.js";
+import {
+  resolveOpenTuiIslandSource,
+  type OpenTuiIslandSource,
+  type ResolvedOpenTuiIslandSource,
+} from "../../core/island.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 
 export interface InkOpenTuiSurfaceProps extends Omit<CreateOpenTuiHostOptions, "size"> {
@@ -44,6 +48,16 @@ function inputToSequence(input: string, key: Key) {
   return input.length > 0 ? input : undefined;
 }
 
+function hasSameIslandTarget(
+  currentIsland: ResolvedOpenTuiIslandSource | null,
+  nextIsland: ResolvedOpenTuiIslandSource,
+) {
+  return (
+    currentIsland?.module === nextIsland.module &&
+    currentIsland.exportName === nextIsland.exportName
+  );
+}
+
 /** Render an offscreen OpenTUI island inside an Ink layout region. */
 export function InkOpenTuiSurface({
   island,
@@ -59,6 +73,7 @@ export function InkOpenTuiSurface({
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
   const inputActive = isActive && isRawModeSupported;
   const hostRef = useRef<OpenTuiHost | null>(null);
+  const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
   const [lines, setLines] = useState<string[]>(() =>
     normalizeLines([fallback], resolvedWidth, height),
   );
@@ -73,6 +88,7 @@ export function InkOpenTuiSurface({
 
   useEffect(() => {
     let cancelled = false;
+    const resolvedIsland = resolveOpenTuiIslandSource(island);
 
     const ensureHost = async () => {
       if (!hostRef.current) {
@@ -85,7 +101,13 @@ export function InkOpenTuiSurface({
 
       if (cancelled || !hostRef.current) return;
 
-      await hostRef.current.mount(island);
+      if (hasSameIslandTarget(mountedIslandRef.current, resolvedIsland)) {
+        await hostRef.current.updateProps(resolvedIsland.props);
+      } else {
+        await hostRef.current.mount(resolvedIsland);
+      }
+
+      mountedIslandRef.current = resolvedIsland;
       if (isActive) await hostRef.current.focus();
       else await hostRef.current.blur();
       await sync();
@@ -109,6 +131,7 @@ export function InkOpenTuiSurface({
     return () => {
       const host = hostRef.current;
       hostRef.current = null;
+      mountedIslandRef.current = null;
       if (host) {
         void host.destroy();
       }

@@ -8,7 +8,12 @@ import {
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
 import { diffHostFrames } from "../../core/frame-diff.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import type { OpenTuiIslandSource } from "../../core/island.js";
+import {
+  resolveOpenTuiIslandSource,
+  type OpenTuiIslandProps,
+  type OpenTuiIslandSource,
+  type ResolvedOpenTuiIslandSource,
+} from "../../core/island.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 import type { HostFrame, HostMouseButton, HostMouseInput } from "../../core/types.js";
 
@@ -154,6 +159,16 @@ function normalizeLines(lines: string[], width: number, height: number) {
   return visible;
 }
 
+function hasSameIslandTarget(
+  currentIsland: ResolvedOpenTuiIslandSource | null,
+  nextIsland: ResolvedOpenTuiIslandSource,
+) {
+  return (
+    currentIsland?.module === nextIsland.module &&
+    currentIsland.exportName === nextIsland.exportName
+  );
+}
+
 /** A fixed-height pi-tui component that hosts one OpenTUI island. */
 export class PiTuiOpenTuiSurface implements Component, Focusable {
   wantsKeyRelease = true;
@@ -167,6 +182,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   private syncPromise: Promise<void> | null = null;
   private pendingWidth: number | null = null;
   private _focused = false;
+  private currentIsland: ResolvedOpenTuiIslandSource | null = null;
   private screenBounds: PiTuiScreenBounds | null = null;
 
   constructor(params: {
@@ -249,7 +265,29 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
 
   /** Replace the hosted island and refresh the cached pi-tui output. */
   async setIsland(island: OpenTuiIslandSource) {
-    await this.host.mount(island);
+    const resolvedIsland = resolveOpenTuiIslandSource(island);
+    if (hasSameIslandTarget(this.currentIsland, resolvedIsland)) {
+      await this.updateProps(resolvedIsland.props);
+      return;
+    }
+
+    await this.host.mount(resolvedIsland);
+    this.currentIsland = resolvedIsland;
+    this.cachedFrame = undefined;
+    await this.sync(this.lastWidth);
+  }
+
+  /** Update the mounted island props without swapping to a different module export. */
+  async updateProps(props?: OpenTuiIslandProps) {
+    if (!this.currentIsland) {
+      throw new Error("OpenTUI island has not been mounted yet.");
+    }
+
+    await this.host.updateProps(props);
+    this.currentIsland = {
+      ...this.currentIsland,
+      props,
+    };
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }

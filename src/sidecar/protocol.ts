@@ -1,5 +1,5 @@
 import type { CreateOpenTuiHostOptions } from "../core/host.js";
-import type { ResolvedOpenTuiIslandSource } from "../core/island.js";
+import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/types.js";
 
 export type OpenTuiSidecarRequest =
@@ -12,6 +12,11 @@ export type OpenTuiSidecarRequest =
       id: number;
       method: "mount";
       params: { island: ResolvedOpenTuiIslandSource };
+    }
+  | {
+      id: number;
+      method: "updateProps";
+      params: { props?: OpenTuiIslandProps };
     }
   | {
       id: number;

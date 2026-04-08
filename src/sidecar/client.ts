@@ -2,7 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../core/host.js";
-import { resolveOpenTuiIslandSource, type OpenTuiIslandSource } from "../core/island.js";
+import {
+  resolveOpenTuiIslandSource,
+  type OpenTuiIslandProps,
+  type OpenTuiIslandSource,
+} from "../core/island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/types.js";
 import type { OpenTuiSidecarRequest, OpenTuiSidecarResponse } from "./protocol.js";
 
@@ -130,6 +134,10 @@ class SidecarOpenTuiHost implements OpenTuiHost {
 
   async mount(island: OpenTuiIslandSource) {
     await this.request("mount", { island: resolveOpenTuiIslandSource(island) });
+  }
+
+  async updateProps(props?: OpenTuiIslandProps) {
+    await this.request("updateProps", { props });
   }
 
   async resize(size: HostSize) {

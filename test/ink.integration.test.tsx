@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
 import { render } from "ink-testing-library";
 import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
 
@@ -35,6 +36,41 @@ describe("ink adapter", () => {
 
       app.stdin.write("a");
       expect(await waitForFrameContains(app, "count:1")).toContain("count:1");
+    } finally {
+      app.unmount();
+      app.cleanup();
+    }
+  });
+
+  test("updates island props without resetting hosted state", async () => {
+    const islandModule = new URL("./fixtures/updatable-counter.island.tsx", import.meta.url);
+    const app = render(
+      <InkOpenTuiSurface
+        island={{ module: islandModule, props: { label: "alpha" } }}
+        height={2}
+        width={32}
+      />,
+    );
+
+    try {
+      expect(await waitForFrameContains(app, "label:alpha count:0")).toContain(
+        "label:alpha count:0",
+      );
+
+      app.stdin.write("a");
+      expect(await waitForFrameContains(app, "label:alpha count:1")).toContain(
+        "label:alpha count:1",
+      );
+
+      app.rerender(
+        createElement(InkOpenTuiSurface, {
+          island: { module: islandModule, props: { label: "beta" } },
+          height: 2,
+          width: 32,
+        }),
+      );
+
+      expect(await waitForFrameContains(app, "label:beta count:1")).toContain("label:beta count:1");
     } finally {
       app.unmount();
       app.cleanup();
