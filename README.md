@@ -53,4 +53,7 @@ There is also a first `pi-tui` adapter prototype exported from `opentui-host-cor
 ```bash
 bun run smoke
 bun run smoke:pi-tui
+bun run demo:pi-tui
 ```
+
+`demo:pi-tui` launches a real interactive `ProcessTerminal` demo. Press `q` or `Ctrl-C` to quit.
