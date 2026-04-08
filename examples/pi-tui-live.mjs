@@ -2,7 +2,7 @@ import { matchesKey, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
 import {
   attachPiTuiMouseSupport,
   createPiTuiOpenTuiSurface,
-} from "../src/adapters/pi-tui/index.js";
+} from "../dist/adapters/pi-tui/index.js";
 
 const demoInputs = {
   a: "a",
@@ -12,12 +12,12 @@ const demoInputs = {
   right: "\u001B[C",
   space: " ",
   up: "\u001B[A",
-} as const;
+};
 
-function createDeferredPromise<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
+function createDeferredPromise() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
     resolve = res;
     reject = rej;
   });
@@ -34,7 +34,7 @@ const help = new Text(
   0,
 );
 const footer = new Text(
-  "The pi-tui app stays on Node-compatible APIs while the embedded island renders inside a Bun sidecar.",
+  "The pi-tui app is running under Node while the embedded island renders inside a Bun sidecar.",
   1,
   0,
 );
@@ -67,7 +67,7 @@ function syncSurfaceBounds() {
 process.stdout.on("resize", syncSurfaceBounds);
 
 let shuttingDown = false;
-const finish = createDeferredPromise<void>();
+const finish = createDeferredPromise();
 
 async function shutdown() {
   if (shuttingDown) {
@@ -101,7 +101,7 @@ const autoInput = process.env.PI_TUI_DEMO_AUTO_INPUT?.split(",")
 
 if (autoInput && autoInput.length > 0) {
   for (const token of autoInput) {
-    const sequence = demoInputs[token as keyof typeof demoInputs] ?? token;
+    const sequence = demoInputs[token] ?? token;
     await surface.sendInput(sequence);
   }
 }

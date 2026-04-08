@@ -1,15 +1,14 @@
-/** @jsxImportSource react */
-
 import { render } from "ink-testing-library";
-import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
+import React from "react";
+import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
 
-function wait(ms: number) {
-  return new Promise<void>((resolve) => {
+function wait(ms) {
+  return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
-async function waitForFrameContains(app: ReturnType<typeof render>, text: string, timeoutMs = 500) {
+async function waitForFrameContains(app, text, timeoutMs = 500) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const frame = app.lastFrame() ?? "";
@@ -26,11 +25,11 @@ async function waitForFrameContains(app: ReturnType<typeof render>, text: string
 }
 
 const app = render(
-  <InkOpenTuiSurface
-    island={{ module: new URL("./islands/counter.island.tsx", import.meta.url) }}
-    height={2}
-    width={24}
-  />,
+  React.createElement(InkOpenTuiSurface, {
+    island: { module: new URL("./islands/counter.island.tsx", import.meta.url) },
+    height: 2,
+    width: 24,
+  }),
 );
 
 try {

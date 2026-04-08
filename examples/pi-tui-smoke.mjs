@@ -1,28 +1,28 @@
 import assert from "node:assert/strict";
-import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
+import { TUI } from "@mariozechner/pi-tui";
+import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
-class NullTerminal implements Terminal {
-  constructor(
-    readonly columns: number,
-    readonly rows: number,
-  ) {}
+class NullTerminal {
+  constructor(columns, rows) {
+    this.columns = columns;
+    this.rows = rows;
+  }
 
   get kittyProtocolActive() {
     return false;
   }
 
-  start(_onInput: (data: string) => void, _onResize: () => void) {}
+  start() {}
   stop() {}
   async drainInput() {}
-  write(_data: string) {}
-  moveBy(_lines: number) {}
+  write() {}
+  moveBy() {}
   hideCursor() {}
   showCursor() {}
   clearLine() {}
   clearFromCursor() {}
   clearScreen() {}
-  setTitle(_title: string) {}
+  setTitle() {}
 }
 
 const terminal = new NullTerminal(24, 4);

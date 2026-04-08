@@ -4,13 +4,5 @@
     "rootDir": "."
   },
   "include": [],
-  "files": [
-    "examples/smoke.tsx",
-    "examples/ink-smoke.tsx",
-    "examples/pi-tui-smoke.tsx",
-    "examples/pi-tui-live.tsx",
-    "examples/ink-live.tsx",
-    "examples/islands/counter.island.tsx",
-    "examples/islands/playground.island.tsx"
-  ]
+  "files": ["examples/islands/counter.island.tsx", "examples/islands/playground.island.tsx"]
 }

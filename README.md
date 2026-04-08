@@ -108,7 +108,7 @@ tui.start();
 await surface.sync(terminal.columns);
 ```
 
-For mouse input in `pi-tui`, also call `attachPiTuiMouseSupport(tui, surface)` and set explicit island bounds with `surface.setScreenBounds(...)`. See [`examples/pi-tui-live.tsx`](examples/pi-tui-live.tsx).
+For mouse input in `pi-tui`, also call `attachPiTuiMouseSupport(tui, surface)` and set explicit island bounds with `surface.setScreenBounds(...)`. See [`examples/pi-tui-live.mjs`](examples/pi-tui-live.mjs).
 
 ## Use in Ink
 
@@ -143,9 +143,9 @@ bun run demo:ink
 ```
 
 - `smoke` exercises the low-level sidecar client directly.
-- `smoke:pi-tui` and `smoke:ink` verify the host adapters end to end.
-- `demo:pi-tui` launches a live `ProcessTerminal` app with keyboard, click, and wheel input inside the embedded island.
-- `demo:ink` launches a live Ink app with keyboard input forwarded into the embedded island.
+- `smoke:pi-tui` and `smoke:ink` run the host app under Node and verify the adapters end to end.
+- `demo:pi-tui` launches a live `ProcessTerminal` app under Node with keyboard, click, and wheel input inside the embedded island.
+- `demo:ink` launches a live Ink app under Node with keyboard input forwarded into the embedded island.
 
 ## Package entrypoints
 
