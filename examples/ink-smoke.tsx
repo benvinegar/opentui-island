@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { render } from "ink-testing-library";
 import { useKeyboard } from "@opentui/react";
 import { createElement, useState } from "react";
-import { OpenTuiInkSurface } from "../src/adapters/ink/index.js";
+import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
 
 function wait(ms: number) {
   return new Promise<void>((resolve) => {
@@ -31,7 +31,7 @@ function CounterApp() {
   );
 }
 
-const app = render(<OpenTuiInkSurface tree={<CounterApp />} height={2} width={24} />);
+const app = render(<InkOpenTuiSurface tree={<CounterApp />} height={2} width={24} />);
 
 try {
   await wait(30);

@@ -104,7 +104,7 @@ This is the minimal shape of an Ink host app:
 import { render } from "ink";
 import { useKeyboard } from "@opentui/react";
 import { createElement, useState } from "react";
-import { OpenTuiInkSurface } from "opentui-island/ink";
+import { InkOpenTuiSurface } from "opentui-island/ink";
 
 function Counter() {
   const [count, setCount] = useState(0);
@@ -125,7 +125,7 @@ function Counter() {
   );
 }
 
-render(<OpenTuiInkSurface height={3} width={24} tree={<Counter />} />);
+render(<InkOpenTuiSurface height={3} width={24} tree={<Counter />} />);
 ```
 
 The Ink adapter currently forwards keyboard input. Because the surrounding file uses the React JSX runtime, the hosted OpenTUI subtree above uses `createElement(...)` for `box` and `text`.

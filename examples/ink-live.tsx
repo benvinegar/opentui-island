@@ -3,7 +3,7 @@
 import { Box, render, Text, useApp, useInput } from "ink";
 import { useKeyboard } from "@opentui/react";
 import { createElement, useEffect, useState } from "react";
-import { OpenTuiInkSurface } from "../src/adapters/ink/index.js";
+import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
 
 const panels = ["Overview", "Input", "Repaint", "Goal"] as const;
 
@@ -107,7 +107,7 @@ function DemoApp() {
         Inside the embedded OpenTUI surface: Up/Down move, A increments. App keys: q or Escape
         quits.
       </Text>
-      <OpenTuiInkSurface height={10} tree={<EmbeddedPlayground />} />
+      <InkOpenTuiSurface height={10} tree={<EmbeddedPlayground />} />
     </Box>
   );
 }

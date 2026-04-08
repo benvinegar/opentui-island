@@ -8,7 +8,7 @@ import { hostFrameToAnsiLines } from "../../core/ansi.js";
 import type { CreateOffscreenOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
 import { createOffscreenOpenTuiHost } from "../../core/offscreen-host.js";
 
-export interface OpenTuiInkSurfaceProps extends Omit<CreateOffscreenOpenTuiHostOptions, "size"> {
+export interface InkOpenTuiSurfaceProps extends Omit<CreateOffscreenOpenTuiHostOptions, "size"> {
   tree: ReactNode;
   width?: number;
   height: number;
@@ -45,7 +45,7 @@ function inputToSequence(input: string, key: Key) {
 }
 
 /** Render an offscreen OpenTUI subtree inside an Ink layout region. */
-export function OpenTuiInkSurface({
+export function InkOpenTuiSurface({
   tree,
   width,
   height,
@@ -53,7 +53,7 @@ export function OpenTuiInkSurface({
   fallback = "Loading OpenTUI island...",
   kittyKeyboard,
   otherModifiersMode,
-}: OpenTuiInkSurfaceProps) {
+}: InkOpenTuiSurfaceProps) {
   const windowSize = useWindowSize();
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
   const hostRef = useRef<OpenTuiHost | null>(null);
