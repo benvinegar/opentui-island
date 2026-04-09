@@ -1,3 +1,4 @@
+import type { OpenTuiBridgeEvent, OpenTuiBridgeWaitOptions } from "./bridge.js";
 import type { OpenTuiIslandProps, OpenTuiIslandSource } from "./island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "./types.js";
 
@@ -5,6 +6,12 @@ import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "./types.
 export interface OpenTuiHost {
   mount(island: OpenTuiIslandSource): Promise<void>;
   updateProps(props?: OpenTuiIslandProps): Promise<void>;
+  onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
+  sendCommand(event: OpenTuiBridgeEvent): Promise<void>;
+  waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
+    match: (event: OpenTuiBridgeEvent) => event is TEvent,
+    options?: OpenTuiBridgeWaitOptions,
+  ): Promise<TEvent>;
   resize(size: HostSize): Promise<void>;
   focus(): Promise<void>;
   blur(): Promise<void>;

@@ -4,6 +4,7 @@ import { Box, Text, useBoxMetrics, useInput, useStdin, useStdout, useWindowSize 
 import type { Key } from "ink";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
+import type { OpenTuiBridgeEvent } from "../../core/bridge.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
 import {
   resolveOpenTuiIslandSource,
@@ -34,6 +35,7 @@ export interface InkOpenTuiSurfaceProps
   height: number;
   isActive?: boolean;
   fallback?: string;
+  onEvent?: (event: OpenTuiBridgeEvent) => void;
 }
 
 function normalizeLines(lines: string[], width: number, height: number) {
@@ -127,6 +129,7 @@ export function InkOpenTuiSurface({
   fallback = "Loading OpenTUI island...",
   onReady,
   onError,
+  onEvent,
   onReadyStateChange,
   kittyKeyboard,
   otherModifiersMode,
@@ -139,6 +142,7 @@ export function InkOpenTuiSurface({
   const hostRef = useRef<OpenTuiHost | null>(null);
   const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
   const readyTrackerRef = useRef(new OpenTuiReadyTracker());
+  const eventUnsubscribeRef = useRef<(() => void) | null>(null);
   const containerRef = useRef<DOMElement>(null!);
   const mouseBufferRef = useRef("");
   const suppressMouseKeyUntilRef = useRef(0);
@@ -188,6 +192,10 @@ export function InkOpenTuiSurface({
           kittyKeyboard,
           otherModifiersMode,
         });
+
+        if (onEvent) {
+          eventUnsubscribeRef.current = hostRef.current.onEvent(onEvent);
+        }
       }
 
       if (cancelled || !hostRef.current) return;
@@ -221,7 +229,22 @@ export function InkOpenTuiSurface({
   }, [island, resolvedWidth, height, kittyKeyboard, otherModifiersMode, isActive]);
 
   useEffect(() => {
+    eventUnsubscribeRef.current?.();
+    eventUnsubscribeRef.current = null;
+    if (hostRef.current && onEvent) {
+      eventUnsubscribeRef.current = hostRef.current.onEvent(onEvent);
+    }
+
     return () => {
+      eventUnsubscribeRef.current?.();
+      eventUnsubscribeRef.current = null;
+    };
+  }, [onEvent]);
+
+  useEffect(() => {
+    return () => {
+      eventUnsubscribeRef.current?.();
+      eventUnsubscribeRef.current = null;
       const host = hostRef.current;
       hostRef.current = null;
       mountedIslandRef.current = null;

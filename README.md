@@ -129,6 +129,35 @@ render(
 - Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
 - Ink also forwards mouse input in interactive TTY sessions.
 
+## Result bridge
+
+Islands can emit structured events back to the host with `useOpenTuiIslandBridge()`.
+
+Inside the island:
+
+```tsx
+import { useOpenTuiIslandBridge } from "opentui-island";
+
+const bridge = useOpenTuiIslandBridge();
+
+bridge.emit({
+  type: "save",
+  payload: { art: exportedArt },
+});
+```
+
+In a `pi-tui` host:
+
+```ts
+const result = await surface.waitForEvent(
+  (event): event is { type: "save"; payload: { art: string } } => event.type === "save",
+);
+
+await ctx.ui.pasteToEditor(result.payload.art);
+```
+
+Low-level hosts also support `onEvent(...)`, `waitForEvent(...)`, and `sendCommand(...)`.
+
 ## Demos
 
 ```bash

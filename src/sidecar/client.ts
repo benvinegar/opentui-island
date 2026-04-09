@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import type { OpenTuiBridgeEvent, OpenTuiBridgeWaitOptions } from "../core/bridge.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../core/host.js";
 import {
   resolveOpenTuiIslandSource,
@@ -11,6 +12,7 @@ import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/
 import {
   OPENTUI_SIDECAR_PROTOCOL,
   OPENTUI_SIDECAR_PROTOCOL_VERSION,
+  isOpenTuiSidecarEventMessage,
   type OpenTuiSidecarHandshake,
   type OpenTuiSidecarRequest,
   type OpenTuiSidecarResponse,
@@ -19,6 +21,13 @@ import {
 interface PendingRequest {
   method: OpenTuiSidecarRequest["method"];
   resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+  timeout: ReturnType<typeof setTimeout> | null;
+}
+
+interface PendingEventWait {
+  match: (event: OpenTuiBridgeEvent) => boolean;
+  resolve: (event: OpenTuiBridgeEvent) => void;
   reject: (reason?: unknown) => void;
   timeout: ReturnType<typeof setTimeout> | null;
 }
@@ -49,6 +58,8 @@ function describeSpawnFailure(bunCommand: string, error: unknown) {
 
 class SidecarOpenTuiHost implements OpenTuiHost {
   private readonly pending = new Map<number, PendingRequest>();
+  private readonly eventListeners = new Set<(event: OpenTuiBridgeEvent) => void>();
+  private readonly pendingEventWaits = new Set<PendingEventWait>();
   private readonly stderrChunks: string[] = [];
   private nextRequestId = 1;
   private closed = false;
@@ -152,6 +163,15 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     pending.timeout = null;
   }
 
+  private clearEventWaitTimeout(pending: PendingEventWait) {
+    if (!pending.timeout) {
+      return;
+    }
+
+    clearTimeout(pending.timeout);
+    pending.timeout = null;
+  }
+
   private shutdownProcess() {
     if (!this.child.stdin.destroyed) {
       this.child.stdin.end();
@@ -167,16 +187,44 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     this.shutdownProcess();
   }
 
+  private dispatchEvent(event: OpenTuiBridgeEvent) {
+    for (const listener of this.eventListeners) {
+      listener(event);
+    }
+
+    const matchingWaits: PendingEventWait[] = [];
+    for (const pending of this.pendingEventWaits) {
+      if (!pending.match(event)) {
+        continue;
+      }
+
+      matchingWaits.push(pending);
+    }
+
+    for (const pending of matchingWaits) {
+      this.pendingEventWaits.delete(pending);
+      this.clearEventWaitTimeout(pending);
+      pending.resolve(event);
+    }
+  }
+
   private handleResponseLine(line: string) {
-    let response: OpenTuiSidecarResponse;
+    let message: OpenTuiSidecarResponse | { event: OpenTuiBridgeEvent };
     try {
-      response = JSON.parse(line) as OpenTuiSidecarResponse;
+      message = JSON.parse(line) as OpenTuiSidecarResponse | { event: OpenTuiBridgeEvent };
     } catch {
       this.abort(
         new Error(`OpenTUI sidecar returned invalid JSON.${this.stderrSuffix()}\n${line}`),
       );
       return;
     }
+
+    if (isOpenTuiSidecarEventMessage(message)) {
+      this.dispatchEvent(message.event);
+      return;
+    }
+
+    const response = message;
 
     const pending = this.pending.get(response.id);
     if (!pending) {
@@ -204,6 +252,12 @@ class SidecarOpenTuiHost implements OpenTuiHost {
       pending.reject(error);
     }
     this.pending.clear();
+
+    for (const pending of this.pendingEventWaits) {
+      this.clearEventWaitTimeout(pending);
+      pending.reject(error);
+    }
+    this.pendingEventWaits.clear();
   }
 
   private request<T = undefined>(
@@ -257,6 +311,41 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     await this.request("updateProps", { props });
   }
 
+  onEvent(handler: (event: OpenTuiBridgeEvent) => void) {
+    this.eventListeners.add(handler);
+    return () => {
+      this.eventListeners.delete(handler);
+    };
+  }
+
+  async sendCommand(event: OpenTuiBridgeEvent) {
+    await this.request("sendCommand", { command: event });
+  }
+
+  waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
+    match: (event: OpenTuiBridgeEvent) => event is TEvent,
+    options: OpenTuiBridgeWaitOptions = {},
+  ) {
+    const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
+    return new Promise<TEvent>((resolve, reject) => {
+      const pending: PendingEventWait = {
+        match,
+        resolve: (event) => {
+          resolve(event as TEvent);
+        },
+        reject,
+        timeout:
+          timeoutMs > 0
+            ? setTimeout(() => {
+                this.pendingEventWaits.delete(pending);
+                reject(new Error(`OpenTUI sidecar event wait timed out after ${timeoutMs}ms.`));
+              }, timeoutMs)
+            : null,
+      };
+      this.pendingEventWaits.add(pending);
+    });
+  }
+
   async resize(size: HostSize) {
     await this.request("resize", size);
   }
@@ -290,9 +379,16 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     try {
       await this.request("destroy");
     } finally {
+      const closedError = new Error("OpenTUI sidecar has already been closed.");
+      for (const pending of this.pendingEventWaits) {
+        this.clearEventWaitTimeout(pending);
+        pending.reject(closedError);
+      }
       this.closed = true;
       this.shutdownProcess();
       this.pending.clear();
+      this.pendingEventWaits.clear();
+      this.eventListeners.clear();
     }
   }
 }

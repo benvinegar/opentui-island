@@ -6,6 +6,12 @@ import {
   type ReactElement,
 } from "react";
 import { createInterface } from "node:readline";
+import {
+  OpenTuiIslandBridgeProvider,
+  type OpenTuiBridgeEvent,
+  type OpenTuiBridgeEventHandler,
+  type OpenTuiIslandBridge,
+} from "../core/bridge.js";
 import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { OffscreenOpenTuiHost } from "./offscreen-host.js";
 import { createOffscreenOpenTuiHost } from "./offscreen-host.js";
@@ -23,6 +29,9 @@ interface LoadedIsland {
   render: () => ReactElement;
   source: ResolvedOpenTuiIslandSource;
   updateProps: (props?: OpenTuiIslandProps) => void;
+  bridge: OpenTuiIslandBridge & {
+    dispatchCommand: (event: OpenTuiBridgeEvent) => void;
+  };
 }
 
 let loadedIsland: LoadedIsland | null = null;
@@ -31,9 +40,36 @@ function writeResponse(response: OpenTuiSidecarResponse) {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
+function writeEvent(event: OpenTuiBridgeEvent) {
+  process.stdout.write(`${JSON.stringify({ event })}\n`);
+}
+
+function createIslandBridge() {
+  const commandListeners = new Set<OpenTuiBridgeEventHandler>();
+  const bridge: OpenTuiIslandBridge & { dispatchCommand: (event: OpenTuiBridgeEvent) => void } = {
+    emit(event) {
+      writeEvent(event);
+    },
+    onCommand(handler) {
+      commandListeners.add(handler);
+      return () => {
+        commandListeners.delete(handler);
+      };
+    },
+    dispatchCommand(event) {
+      for (const handler of commandListeners) {
+        handler(event);
+      }
+    },
+  };
+
+  return bridge;
+}
+
 async function loadIslandTree(source: ResolvedOpenTuiIslandSource) {
   const loaded = (await import(source.module)) as Record<string, unknown>;
   const exported = loaded[source.exportName];
+  const bridge = createIslandBridge();
   if (!exported) {
     throw new Error(`Island export '${source.exportName}' was not found in '${source.module}'.`);
   }
@@ -47,8 +83,9 @@ async function loadIslandTree(source: ResolvedOpenTuiIslandSource) {
 
     return {
       acceptsProps: false,
-      render: () => exported,
+      render: () => createElement(OpenTuiIslandBridgeProvider, { value: bridge }, exported),
       source,
+      bridge,
       updateProps: (props) => {
         if (props && Object.keys(props).length > 0) {
           throw new Error(
@@ -74,8 +111,14 @@ async function loadIslandTree(source: ResolvedOpenTuiIslandSource) {
 
   return {
     acceptsProps: true,
-    render: () => createElement(IslandComponentRoot),
+    render: () =>
+      createElement(
+        OpenTuiIslandBridgeProvider,
+        { value: bridge },
+        createElement(IslandComponentRoot),
+      ),
     source,
+    bridge,
     updateProps: (props) => {
       if (!setCurrentProps) {
         throw new Error("OpenTUI island props are not ready yet.");
@@ -136,6 +179,10 @@ async function handleRequest(request: OpenTuiSidecarRequest) {
     case "mount": {
       loadedIsland = await loadIslandTree(request.params.island);
       renderLoadedIsland();
+      return undefined;
+    }
+    case "sendCommand": {
+      ensureLoadedIsland().bridge.dispatchCommand(request.params.command);
       return undefined;
     }
     case "updateProps": {

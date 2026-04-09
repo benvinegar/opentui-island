@@ -1,3 +1,4 @@
+import type { OpenTuiBridgeEvent } from "../core/bridge.js";
 import type { CreateOpenTuiHostOptions } from "../core/host.js";
 import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/types.js";
@@ -25,6 +26,11 @@ export type OpenTuiSidecarRequest =
       id: number;
       method: "mount";
       params: { island: ResolvedOpenTuiIslandSource };
+    }
+  | {
+      id: number;
+      method: "sendCommand";
+      params: { command: OpenTuiBridgeEvent };
     }
   | {
       id: number;
@@ -74,3 +80,11 @@ export type OpenTuiSidecarResponse =
       ok: false;
       error: string;
     };
+
+export interface OpenTuiSidecarEventMessage {
+  event: OpenTuiBridgeEvent;
+}
+
+export function isOpenTuiSidecarEventMessage(value: unknown): value is OpenTuiSidecarEventMessage {
+  return typeof value === "object" && value !== null && "event" in value;
+}

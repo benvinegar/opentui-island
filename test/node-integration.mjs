@@ -8,6 +8,7 @@ import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
 const islandModule = new URL("./fixtures/updatable-counter.island.tsx", import.meta.url);
 const mouseIslandModule = new URL("./fixtures/mouse.island.tsx", import.meta.url);
+const bridgeIslandModule = new URL("./fixtures/bridge-built.island.mjs", import.meta.url);
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -182,9 +183,36 @@ async function testNodeInkMouseHost() {
   }
 }
 
+function isSaveEvent(event) {
+  return event.type === "save";
+}
+
+async function testNodeBridgeHost() {
+  const host = await createOpenTuiSidecarHost({
+    size: {
+      width: 32,
+      height: 3,
+    },
+  });
+
+  try {
+    await host.mount({ module: bridgeIslandModule });
+    const eventWait = host.waitForEvent(isSaveEvent);
+    await host.sendCommand({ type: "setArt", payload: "node-art" });
+    await host.renderFrame();
+    await host.sendKey({ sequence: "s" });
+
+    const event = await eventWait;
+    assert.equal(event.payload.art, "node-art");
+  } finally {
+    await host.destroy();
+  }
+}
+
 await testNodeSidecarHost();
 await testNodePiTuiHost();
 await testNodeInkHost();
 await testNodeInkMouseHost();
+await testNodeBridgeHost();
 
 console.log("node integration ok");
