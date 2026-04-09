@@ -2,7 +2,20 @@ import type { CreateOpenTuiHostOptions } from "../core/host.js";
 import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/types.js";
 
+export const OPENTUI_SIDECAR_PROTOCOL = "opentui-island";
+export const OPENTUI_SIDECAR_PROTOCOL_VERSION = 1;
+
+export interface OpenTuiSidecarHandshake {
+  protocol: typeof OPENTUI_SIDECAR_PROTOCOL;
+  version: typeof OPENTUI_SIDECAR_PROTOCOL_VERSION;
+}
+
 export type OpenTuiSidecarRequest =
+  | {
+      id: number;
+      method: "handshake";
+      params: OpenTuiSidecarHandshake;
+    }
   | {
       id: number;
       method: "create";
@@ -54,7 +67,7 @@ export type OpenTuiSidecarResponse =
   | {
       id: number;
       ok: true;
-      result?: HostFrame;
+      result?: HostFrame | OpenTuiSidecarHandshake;
     }
   | {
       id: number;

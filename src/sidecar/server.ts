@@ -9,7 +9,12 @@ import { createInterface } from "node:readline";
 import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { OffscreenOpenTuiHost } from "./offscreen-host.js";
 import { createOffscreenOpenTuiHost } from "./offscreen-host.js";
-import type { OpenTuiSidecarRequest, OpenTuiSidecarResponse } from "./protocol.js";
+import {
+  OPENTUI_SIDECAR_PROTOCOL,
+  OPENTUI_SIDECAR_PROTOCOL_VERSION,
+  type OpenTuiSidecarRequest,
+  type OpenTuiSidecarResponse,
+} from "./protocol.js";
 
 let host: OffscreenOpenTuiHost | null = null;
 
@@ -104,6 +109,21 @@ function renderLoadedIsland() {
 
 async function handleRequest(request: OpenTuiSidecarRequest) {
   switch (request.method) {
+    case "handshake": {
+      if (
+        request.params.protocol !== OPENTUI_SIDECAR_PROTOCOL ||
+        request.params.version !== OPENTUI_SIDECAR_PROTOCOL_VERSION
+      ) {
+        throw new Error(
+          `OpenTUI sidecar protocol mismatch. Server supports ${OPENTUI_SIDECAR_PROTOCOL}@${OPENTUI_SIDECAR_PROTOCOL_VERSION}, but the host requested ${request.params.protocol}@${request.params.version}.`,
+        );
+      }
+
+      return {
+        protocol: OPENTUI_SIDECAR_PROTOCOL,
+        version: OPENTUI_SIDECAR_PROTOCOL_VERSION,
+      } as const;
+    }
     case "create": {
       if (host) {
         await host.destroy();
@@ -164,6 +184,8 @@ async function handleRequest(request: OpenTuiSidecarRequest) {
       return undefined;
     }
   }
+
+  throw new Error(`Unknown sidecar method '${(request as { method: string }).method}'.`);
 }
 
 const reader = createInterface({

@@ -34,7 +34,24 @@ describe("sidecar error handling", () => {
     }
 
     expect(error).not.toBeNull();
-    expect(error?.message).toContain("create timed out");
+    expect(error?.message).toContain("handshake timed out");
+  });
+
+  test("rejects protocol mismatches during startup", async () => {
+    let error: Error | null = null;
+
+    try {
+      await createOpenTuiSidecarHost({
+        bunCommand: "bun",
+        sidecarPath: fileURLToPath(new URL("./fixtures/mismatched-sidecar.mjs", import.meta.url)),
+        size: { width: 24, height: 2 },
+      });
+    } catch (caught) {
+      error = caught as Error;
+    }
+
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain("protocol mismatch");
   });
 
   test("times out stalled requests after startup", async () => {

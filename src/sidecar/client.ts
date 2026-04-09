@@ -8,11 +8,17 @@ import {
   type OpenTuiIslandSource,
 } from "../core/island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "../core/types.js";
-import type { OpenTuiSidecarRequest, OpenTuiSidecarResponse } from "./protocol.js";
+import {
+  OPENTUI_SIDECAR_PROTOCOL,
+  OPENTUI_SIDECAR_PROTOCOL_VERSION,
+  type OpenTuiSidecarHandshake,
+  type OpenTuiSidecarRequest,
+  type OpenTuiSidecarResponse,
+} from "./protocol.js";
 
-interface PendingRequest<T> {
+interface PendingRequest {
   method: OpenTuiSidecarRequest["method"];
-  resolve: (value: T) => void;
+  resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
   timeout: ReturnType<typeof setTimeout> | null;
 }
@@ -42,7 +48,7 @@ function describeSpawnFailure(bunCommand: string, error: unknown) {
 }
 
 class SidecarOpenTuiHost implements OpenTuiHost {
-  private readonly pending = new Map<number, PendingRequest<HostFrame | undefined>>();
+  private readonly pending = new Map<number, PendingRequest>();
   private readonly stderrChunks: string[] = [];
   private nextRequestId = 1;
   private closed = false;
@@ -86,8 +92,50 @@ class SidecarOpenTuiHost implements OpenTuiHost {
   }
 
   async initialize(options: CreateOpenTuiHostOptions, startupTimeoutMs: number) {
+    await this.verifyProtocol(startupTimeoutMs);
     await this.request("create", options, startupTimeoutMs);
     return this;
+  }
+
+  private isHandshakeResult(value: unknown): value is OpenTuiSidecarHandshake {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "protocol" in value &&
+      "version" in value &&
+      typeof value.protocol === "string" &&
+      typeof value.version === "number"
+    );
+  }
+
+  private async verifyProtocol(timeoutMs: number) {
+    const result = await this.request<unknown>(
+      "handshake",
+      {
+        protocol: OPENTUI_SIDECAR_PROTOCOL,
+        version: OPENTUI_SIDECAR_PROTOCOL_VERSION,
+      },
+      timeoutMs,
+    );
+
+    if (!this.isHandshakeResult(result)) {
+      const error = new Error(
+        `OpenTUI sidecar returned an invalid protocol handshake. Expected { protocol: '${OPENTUI_SIDECAR_PROTOCOL}', version: ${OPENTUI_SIDECAR_PROTOCOL_VERSION} }.`,
+      );
+      this.abort(error);
+      throw error;
+    }
+
+    if (
+      result.protocol !== OPENTUI_SIDECAR_PROTOCOL ||
+      result.version !== OPENTUI_SIDECAR_PROTOCOL_VERSION
+    ) {
+      const error = new Error(
+        `OpenTUI sidecar protocol mismatch. Host expects ${OPENTUI_SIDECAR_PROTOCOL}@${OPENTUI_SIDECAR_PROTOCOL_VERSION}, but the sidecar reported ${result.protocol}@${result.version}.`,
+      );
+      this.abort(error);
+      throw error;
+    }
   }
 
   private stderrSuffix() {
@@ -95,7 +143,7 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     return detail.length > 0 ? `\n${detail}` : "";
   }
 
-  private clearPendingTimeout(pending: PendingRequest<HostFrame | undefined>) {
+  private clearPendingTimeout(pending: PendingRequest) {
     if (!pending.timeout) {
       return;
     }
@@ -158,7 +206,7 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     this.pending.clear();
   }
 
-  private request(
+  private request<T = undefined>(
     method: OpenTuiSidecarRequest["method"],
     params?: unknown,
     timeoutMs = this.requestTimeoutMs,
@@ -170,10 +218,12 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     const id = this.nextRequestId++;
     const message = JSON.stringify({ id, method, ...(params ? { params } : {}) });
 
-    return new Promise<HostFrame | undefined>((resolve, reject) => {
-      const pending: PendingRequest<HostFrame | undefined> = {
+    return new Promise<T>((resolve, reject) => {
+      const pending: PendingRequest = {
         method,
-        resolve,
+        resolve: (value) => {
+          resolve(value as T);
+        },
         reject,
         timeout:
           timeoutMs > 0
@@ -228,7 +278,7 @@ class SidecarOpenTuiHost implements OpenTuiHost {
   }
 
   async renderFrame() {
-    return (await this.request("renderFrame")) as HostFrame;
+    return (await this.request<HostFrame>("renderFrame")) as HostFrame;
   }
 
   async destroy() {

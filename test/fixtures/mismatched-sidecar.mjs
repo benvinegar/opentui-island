@@ -12,16 +12,13 @@ reader.on("line", (line) => {
       `${JSON.stringify({
         id: request.id,
         ok: true,
-        result: { protocol: "opentui-island", version: 1 },
+        result: { protocol: "opentui-island", version: 999 },
       })}\n`,
     );
     return;
   }
 
-  if (request.method === "create") {
-    process.stdout.write(`${JSON.stringify({ id: request.id, ok: true })}\n`);
-  }
+  process.stdout.write(`${JSON.stringify({ id: request.id, ok: true })}\n`);
 });
 
 process.stdin.resume();
-setInterval(() => {}, 1_000);
