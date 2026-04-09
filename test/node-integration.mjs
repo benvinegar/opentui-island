@@ -7,6 +7,7 @@ import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
 import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
 const islandModule = new URL("./fixtures/updatable-counter.island.tsx", import.meta.url);
+const mouseIslandModule = new URL("./fixtures/mouse.island.tsx", import.meta.url);
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -28,6 +29,13 @@ async function waitForFrameContains(app, text, timeoutMs = 500) {
   throw new Error(
     `Timed out waiting for frame to contain '${text}'. Last frame:\n${app.lastFrame()}`,
   );
+}
+
+function createMouseSequence(type, x, y, button = 0) {
+  const ansiX = x + 1;
+  const ansiY = y + 1;
+  const suffix = type === "down" || type === "scroll" ? "M" : "m";
+  return `\u001B[<${button};${ansiX};${ansiY}${suffix}`;
 }
 
 class NullTerminal {
@@ -150,8 +158,33 @@ async function testNodeInkHost() {
   }
 }
 
+async function testNodeInkMouseHost() {
+  const app = render(
+    React.createElement(InkOpenTuiSurface, {
+      island: { module: mouseIslandModule },
+      height: 2,
+      width: 24,
+    }),
+  );
+
+  try {
+    assert((await waitForFrameContains(app, "clicks:0")).includes("clicks:0"));
+    assert((app.lastFrame() ?? "").includes("scroll:none"));
+
+    app.stdin.write(createMouseSequence("down", 0, 0, 0));
+    assert((await waitForFrameContains(app, "clicks:1")).includes("clicks:1"));
+
+    app.stdin.write(createMouseSequence("scroll", 0, 1, 65));
+    assert((await waitForFrameContains(app, "scroll:down")).includes("scroll:down"));
+  } finally {
+    app.unmount();
+    app.cleanup();
+  }
+}
+
 await testNodeSidecarHost();
 await testNodePiTuiHost();
 await testNodeInkHost();
+await testNodeInkMouseHost();
 
 console.log("node integration ok");

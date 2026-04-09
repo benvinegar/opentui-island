@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 
-import { Box, Text, useInput, useStdin, useWindowSize } from "ink";
+import { Box, Text, useBoxMetrics, useInput, useStdin, useStdout, useWindowSize } from "ink";
 import type { Key } from "ink";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
 import {
@@ -11,7 +11,14 @@ import {
   type ResolvedOpenTuiIslandSource,
 } from "../../core/island.js";
 import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
+import {
+  DISABLE_SGR_MOUSE_MODE,
+  ENABLE_SGR_MOUSE_MODE,
+  parseSgrMouseInput,
+} from "../../core/terminal-mouse.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
+import type { HostMouseInput } from "../../core/types.js";
+import type { DOMElement } from "ink";
 
 function samePropsJson(
   left: ResolvedOpenTuiIslandSource["props"],
@@ -67,6 +74,50 @@ function hasSameIslandTarget(
   );
 }
 
+function toInputString(data: string | Buffer | Uint8Array) {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  return Buffer.from(data).toString("utf8");
+}
+
+function eventInsideBounds(
+  event: { x: number; y: number },
+  bounds: { left: number; top: number; width: number; height: number },
+) {
+  return (
+    event.x >= bounds.left &&
+    event.x < bounds.left + bounds.width &&
+    event.y >= bounds.top &&
+    event.y < bounds.top + bounds.height
+  );
+}
+
+function getAbsoluteBounds(ref: RefObject<DOMElement | null>, width: number, height: number) {
+  const element = ref.current;
+  if (!element) {
+    return null;
+  }
+
+  let left = 0;
+  let top = 0;
+  let current: DOMElement | undefined = element;
+
+  while (current) {
+    left += current.yogaNode?.getComputedLeft() ?? 0;
+    top += current.yogaNode?.getComputedTop() ?? 0;
+    current = current.parentNode;
+  }
+
+  return {
+    left,
+    top,
+    width,
+    height,
+  };
+}
+
 /** Render an offscreen OpenTUI island inside an Ink layout region. */
 export function InkOpenTuiSurface({
   island,
@@ -81,12 +132,15 @@ export function InkOpenTuiSurface({
   otherModifiersMode,
 }: InkOpenTuiSurfaceProps) {
   const windowSize = useWindowSize();
-  const { isRawModeSupported } = useStdin();
+  const { stdin, isRawModeSupported } = useStdin();
+  const { stdout } = useStdout();
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
   const inputActive = isActive && isRawModeSupported;
   const hostRef = useRef<OpenTuiHost | null>(null);
   const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
   const readyTrackerRef = useRef(new OpenTuiReadyTracker());
+  const containerRef = useRef<DOMElement>(null!);
+  const metrics = useBoxMetrics(containerRef);
   const [lines, setLines] = useState<string[]>(() =>
     normalizeLines([fallback], resolvedWidth, height),
   );
@@ -190,8 +244,53 @@ export function InkOpenTuiSurface({
     { isActive: inputActive },
   );
 
+  useEffect(() => {
+    if (!inputActive || !stdout.isTTY) {
+      return;
+    }
+
+    stdout.write(ENABLE_SGR_MOUSE_MODE);
+    return () => {
+      stdout.write(DISABLE_SGR_MOUSE_MODE);
+    };
+  }, [inputActive, stdout]);
+
+  useEffect(() => {
+    if (!inputActive) {
+      return;
+    }
+
+    const handleMouseData = (data: string | Buffer | Uint8Array) => {
+      const parsed = parseSgrMouseInput(toInputString(data));
+      if (!parsed || !hostRef.current || !metrics.hasMeasured) {
+        return;
+      }
+
+      const bounds = getAbsoluteBounds(containerRef, metrics.width, metrics.height);
+      if (!bounds || !eventInsideBounds(parsed, bounds)) {
+        return;
+      }
+
+      const localEvent: HostMouseInput = {
+        ...parsed,
+        x: parsed.x - bounds.left,
+        y: parsed.y - bounds.top,
+      };
+
+      void (async () => {
+        await hostRef.current?.sendMouse(localEvent);
+        await sync();
+      })();
+    };
+
+    stdin.on("data", handleMouseData);
+    return () => {
+      stdin.off("data", handleMouseData);
+    };
+  }, [inputActive, stdin, metrics.hasMeasured, metrics.width, metrics.height]);
+
   return (
-    <Box flexDirection="column" width={resolvedWidth} minHeight={height}>
+    <Box ref={containerRef} flexDirection="column" width={resolvedWidth} minHeight={height}>
       {lines.map((line, index) => (
         <Text key={`line-${index}`}>{line}</Text>
       ))}

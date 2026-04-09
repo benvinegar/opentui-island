@@ -127,6 +127,7 @@ render(
 - In `pi-tui`, calling `surface.setIsland(...)` again with the same module and new props updates the mounted island without a remount.
 - `pi-tui` surfaces expose `ready`, `readyState`, `readyError`, and `waitUntilReady()`.
 - Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
+- Ink also forwards mouse input in interactive TTY sessions.
 
 ## Demos
 

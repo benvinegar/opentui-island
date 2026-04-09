@@ -15,8 +15,13 @@ import {
   type ResolvedOpenTuiIslandSource,
 } from "../../core/island.js";
 import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
+import {
+  DISABLE_SGR_MOUSE_MODE,
+  ENABLE_SGR_MOUSE_MODE,
+  parseSgrMouseInput,
+} from "../../core/terminal-mouse.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
-import type { HostFrame, HostMouseButton, HostMouseInput } from "../../core/types.js";
+import type { HostFrame, HostMouseInput } from "../../core/types.js";
 
 export interface CreatePiTuiOpenTuiSurfaceOptions
   extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
@@ -39,82 +44,6 @@ interface ResolvedPiTuiScreenBounds {
   col: number;
   width: number;
   height: number;
-}
-
-const ENABLE_PI_TUI_MOUSE_MODE = "\u001B[?1000h\u001B[?1002h\u001B[?1006h";
-const DISABLE_PI_TUI_MOUSE_MODE = "\u001B[?1000l\u001B[?1002l\u001B[?1006l";
-const ESCAPE = String.fromCharCode(27);
-const PI_TUI_MOUSE_SEQUENCE_PATTERN = new RegExp(`^${ESCAPE}\\[<(\\d+);(\\d+);(\\d+)([Mm])$`);
-
-function parseMouseButton(code: number): HostMouseButton {
-  const button = code & 3;
-  if (button === 0 || button === 1 || button === 2) {
-    return button;
-  }
-
-  return 0;
-}
-
-function parsePiTuiMouseInput(
-  data: string,
-): (HostMouseInput & { x: number; y: number }) | undefined {
-  const match = data.match(PI_TUI_MOUSE_SEQUENCE_PATTERN);
-  if (!match) {
-    return undefined;
-  }
-
-  const code = Number.parseInt(match[1], 10);
-  const x = Number.parseInt(match[2], 10) - 1;
-  const y = Number.parseInt(match[3], 10) - 1;
-  const suffix = match[4];
-  const shift = (code & 4) !== 0;
-  const alt = (code & 8) !== 0;
-  const ctrl = (code & 16) !== 0;
-  const motion = (code & 32) !== 0;
-
-  if ((code & 64) !== 0) {
-    const directionCode = code & 3;
-    const direction =
-      directionCode === 0
-        ? "up"
-        : directionCode === 1
-          ? "down"
-          : directionCode === 2
-            ? "left"
-            : "right";
-    return {
-      type: "scroll",
-      x,
-      y,
-      button: (64 + directionCode) as HostMouseButton,
-      direction,
-      shift,
-      alt,
-      ctrl,
-    };
-  }
-
-  if (motion) {
-    return {
-      type: (code & 3) === 3 ? "move" : "drag",
-      x,
-      y,
-      button: parseMouseButton(code),
-      shift,
-      alt,
-      ctrl,
-    };
-  }
-
-  return {
-    type: suffix === "M" ? "down" : "up",
-    x,
-    y,
-    button: parseMouseButton(code),
-    shift,
-    alt,
-    ctrl,
-  };
 }
 
 function resolveBounds(
@@ -387,7 +316,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 
   handleTerminalInput(data: string, options?: { focus?: () => void }) {
-    const event = parsePiTuiMouseInput(data);
+    const event = parseSgrMouseInput(data);
     if (!event) {
       return undefined;
     }
@@ -401,7 +330,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 
   handleInput(data: string) {
-    const mouseEvent = parsePiTuiMouseInput(data);
+    const mouseEvent = parseSgrMouseInput(data);
     if (mouseEvent) {
       void this.dispatchMouseEvent(mouseEvent);
       return;
@@ -431,11 +360,11 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
 }
 
 export function enablePiTuiMouseMode(terminal: Pick<Terminal, "write">) {
-  terminal.write(ENABLE_PI_TUI_MOUSE_MODE);
+  terminal.write(ENABLE_SGR_MOUSE_MODE);
 }
 
 export function disablePiTuiMouseMode(terminal: Pick<Terminal, "write">) {
-  terminal.write(DISABLE_PI_TUI_MOUSE_MODE);
+  terminal.write(DISABLE_SGR_MOUSE_MODE);
 }
 
 export function attachPiTuiMouseSupport(

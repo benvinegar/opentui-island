@@ -44,7 +44,7 @@ function DemoApp() {
     React.createElement(
       Text,
       null,
-      "The Ink app is running under Node while the embedded island renders in a Bun sidecar. Inside the island: Up/Down move, A increments. App keys: q or Escape quit.",
+      "The Ink app is running under Node while the embedded island renders in a Bun sidecar. Inside the island: Up/Down move, A increments, click selects, wheel scroll changes panels. App keys: q or Escape quit.",
     ),
     React.createElement(InkOpenTuiSurface, {
       height: 10,

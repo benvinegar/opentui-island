@@ -5,6 +5,13 @@ import { createElement } from "react";
 import { render } from "ink-testing-library";
 import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
 
+function createMouseSequence(type: "down" | "up" | "scroll", x: number, y: number, button = 0) {
+  const ansiX = x + 1;
+  const ansiY = y + 1;
+  const suffix = type === "down" || type === "scroll" ? "M" : "m";
+  return `\u001B[<${button};${ansiX};${ansiY}${suffix}`;
+}
+
 async function waitForFrameContains(app: ReturnType<typeof render>, text: string, timeoutMs = 500) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -125,6 +132,30 @@ describe("ink adapter", () => {
     } finally {
       errorApp.unmount();
       errorApp.cleanup();
+    }
+  });
+
+  test("forwards mouse click and scroll input into the hosted OpenTUI island", async () => {
+    const app = render(
+      <InkOpenTuiSurface
+        island={{ module: new URL("./fixtures/mouse.island.tsx", import.meta.url) }}
+        height={2}
+        width={24}
+      />,
+    );
+
+    try {
+      expect(await waitForFrameContains(app, "clicks:0")).toContain("clicks:0");
+      expect(app.lastFrame()).toContain("scroll:none");
+
+      app.stdin.write(createMouseSequence("down", 0, 0, 0));
+      expect(await waitForFrameContains(app, "clicks:1")).toContain("clicks:1");
+
+      app.stdin.write(createMouseSequence("scroll", 0, 1, 65));
+      expect(await waitForFrameContains(app, "scroll:down")).toContain("scroll:down");
+    } finally {
+      app.unmount();
+      app.cleanup();
     }
   });
 });
