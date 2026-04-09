@@ -61,6 +61,7 @@
     "check:node-imports": "node --input-type=module -e \"await import('./dist/index.js'); await import('./dist/adapters/pi-tui/index.js'); await import('./dist/adapters/ink/index.js')\"",
     "test": "bun test",
     "test:node-integration": "bun run build && node ./test/node-integration.mjs",
+    "test:tty-smoke": "bun run build && node ./test/tty-smoke.mjs",
     "smoke": "bun run build && node ./examples/smoke.mjs",
     "smoke:ink": "bun run build && node ./examples/ink-smoke.mjs",
     "smoke:pi-tui": "bun run build && node ./examples/pi-tui-smoke.mjs",
@@ -77,11 +78,13 @@
     "@types/react": "^19.2.14",
     "ink": "^7.0.0",
     "ink-testing-library": "^4.0.0",
+    "node-pty": "0.10.1",
     "oxfmt": "^0.44.0",
     "oxlint": "^1.59.0",
     "react": "^19.2.4",
     "simple-git-hooks": "^2.13.1",
     "slop-scan": "^0.1.2",
+    "tuistory": "^0.0.16",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

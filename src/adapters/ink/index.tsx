@@ -14,7 +14,7 @@ import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/read
 import {
   DISABLE_SGR_MOUSE_MODE,
   ENABLE_SGR_MOUSE_MODE,
-  parseSgrMouseInput,
+  parseSgrMouseStream,
 } from "../../core/terminal-mouse.js";
 import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 import type { HostMouseInput } from "../../core/types.js";
@@ -140,6 +140,8 @@ export function InkOpenTuiSurface({
   const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
   const readyTrackerRef = useRef(new OpenTuiReadyTracker());
   const containerRef = useRef<DOMElement>(null!);
+  const mouseBufferRef = useRef("");
+  const suppressMouseKeyUntilRef = useRef(0);
   const metrics = useBoxMetrics(containerRef);
   const [lines, setLines] = useState<string[]>(() =>
     normalizeLines([fallback], resolvedWidth, height),
@@ -233,6 +235,14 @@ export function InkOpenTuiSurface({
     (input, key) => {
       if (!inputActive || !hostRef.current) return;
 
+      if (
+        Date.now() < suppressMouseKeyUntilRef.current &&
+        input.length === 1 &&
+        (input === "m" || input === "M")
+      ) {
+        return;
+      }
+
       const sequence = inputToSequence(input, key);
       if (!sequence) return;
 
@@ -261,25 +271,39 @@ export function InkOpenTuiSurface({
     }
 
     const handleMouseData = (data: string | Buffer | Uint8Array) => {
-      const parsed = parseSgrMouseInput(toInputString(data));
-      if (!parsed || !hostRef.current || !metrics.hasMeasured) {
+      mouseBufferRef.current += toInputString(data);
+      const parsed = parseSgrMouseStream(mouseBufferRef.current);
+      mouseBufferRef.current = parsed.rest;
+
+      if (parsed.events.length === 0 || !hostRef.current || !metrics.hasMeasured) {
         return;
       }
 
       const bounds = getAbsoluteBounds(containerRef, metrics.width, metrics.height);
-      if (!bounds || !eventInsideBounds(parsed, bounds)) {
+      if (!bounds) {
         return;
       }
 
-      const localEvent: HostMouseInput = {
-        ...parsed,
-        x: parsed.x - bounds.left,
-        y: parsed.y - bounds.top,
-      };
-
       void (async () => {
-        await hostRef.current?.sendMouse(localEvent);
-        await sync();
+        let handledMouse = false;
+        for (const event of parsed.events) {
+          if (!eventInsideBounds(event, bounds)) {
+            continue;
+          }
+
+          handledMouse = true;
+          const localEvent: HostMouseInput = {
+            ...event,
+            x: event.x - bounds.left,
+            y: event.y - bounds.top,
+          };
+          await hostRef.current?.sendMouse(localEvent);
+        }
+
+        if (handledMouse) {
+          suppressMouseKeyUntilRef.current = Date.now() + 50;
+          await sync();
+        }
       })();
     };
 

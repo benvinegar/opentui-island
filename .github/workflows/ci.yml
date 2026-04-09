@@ -32,3 +32,6 @@ jobs:
 
       - name: Node host integration tests
         run: bun run test:node-integration
+
+      - name: TTY smoke tests
+        run: bun run test:tty-smoke

@@ -148,7 +148,9 @@ describe("ink adapter", () => {
       expect(await waitForFrameContains(app, "clicks:0")).toContain("clicks:0");
       expect(app.lastFrame()).toContain("scroll:none");
 
-      app.stdin.write(createMouseSequence("down", 0, 0, 0));
+      const click = createMouseSequence("down", 0, 0, 0);
+      app.stdin.write(click.slice(0, -1));
+      app.stdin.write(click.slice(-1));
       expect(await waitForFrameContains(app, "clicks:1")).toContain("clicks:1");
 
       app.stdin.write(createMouseSequence("scroll", 0, 1, 65));

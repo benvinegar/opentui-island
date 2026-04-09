@@ -20,6 +20,11 @@ export type ParsedTerminalMouseInput = HostMouseInput & {
   y: number;
 };
 
+export interface ParsedTerminalMouseStream {
+  events: ParsedTerminalMouseInput[];
+  rest: string;
+}
+
 /** Parse one SGR mouse sequence into a zero-based host mouse event. */
 export function parseSgrMouseInput(data: string): ParsedTerminalMouseInput | undefined {
   const match = data.match(SGR_MOUSE_SEQUENCE_PATTERN);
@@ -79,4 +84,37 @@ export function parseSgrMouseInput(data: string): ParsedTerminalMouseInput | und
     alt,
     ctrl,
   };
+}
+
+/** Consume all complete SGR mouse sequences from a buffered terminal input stream. */
+export function parseSgrMouseStream(buffer: string): ParsedTerminalMouseStream {
+  const events: ParsedTerminalMouseInput[] = [];
+  let index = 0;
+
+  while (index < buffer.length) {
+    const start = buffer.indexOf(`${ESCAPE}[<`, index);
+    if (start === -1) {
+      return { events, rest: "" };
+    }
+
+    const candidate = buffer.slice(start);
+    const match = candidate.match(SGR_MOUSE_SEQUENCE_PATTERN);
+    if (match) {
+      const sequence = match[0];
+      const event = parseSgrMouseInput(sequence);
+      if (event) {
+        events.push(event);
+      }
+
+      index = start + sequence.length;
+      continue;
+    }
+
+    return {
+      events,
+      rest: buffer.slice(start),
+    };
+  }
+
+  return { events, rest: "" };
 }

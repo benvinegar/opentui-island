@@ -153,6 +153,7 @@ bun run demo:ink
 bun run check
 bun test
 bun run test:node-integration
+bun run test:tty-smoke
 ```
 
 ## Support
