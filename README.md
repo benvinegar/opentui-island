@@ -1,35 +1,24 @@
 # opentui-island
 
-Embed OpenTUI islands inside Node host terminal UIs such as `pi-tui` and Ink.
+Embed OpenTUI islands inside Node terminal UIs such as `pi-tui` and Ink.
 
-[![GitHub stars](https://img.shields.io/github/stars/benvinegar/opentui-island?style=for-the-badge)](https://github.com/benvinegar/opentui-island/stargazers)
-[![Runtime Node + Bun sidecar](https://img.shields.io/badge/runtime-node%20host%20%2B%20bun%20sidecar-111827?style=for-the-badge)](https://bun.sh)
-[![Adapters pi-tui + ink](https://img.shields.io/badge/adapters-pi--tui%20%2B%20ink-0ea5e9?style=for-the-badge)](https://github.com/benvinegar/opentui-island/tree/main/src/adapters)
-[![Status experimental](https://img.shields.io/badge/status-experimental-f59e0b?style=for-the-badge)](https://github.com/benvinegar/opentui-island)
+[![npm version](https://img.shields.io/npm/v/opentui-island?style=for-the-badge)](https://www.npmjs.com/package/opentui-island)
+[![CI](https://img.shields.io/github/actions/workflow/status/benvinegar/opentui-island/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/benvinegar/opentui-island/actions/workflows/ci.yml)
+[![Runtime Node host + Bun sidecar](https://img.shields.io/badge/runtime-node%20host%20%2B%20bun%20sidecar-111827?style=for-the-badge)](https://bun.sh)
 
-`opentui-island` solves the runtime split between Bun-only OpenTUI rendering and Node-oriented host TUIs:
-
-- your host app stays in `pi-tui` or Ink
-- OpenTUI renders in a local Bun sidecar
-- the adapter bridges frames, resize, focus, keyboard, and mouse input
-
-## Why opentui-island
-
-- Let the host TUI own outer layout while OpenTUI owns the embedded widget.
-- Reuse the same island module across multiple host runtimes.
-- Keep OpenTUI's Bun dependency out of the host process.
-- Paint captured OpenTUI frames back into a Node-compatible terminal UI.
-
-## Runtime model
-
-- Host app: Node-compatible runtime such as `pi-tui` or Ink
-- Renderer: local Bun sidecar spawned by `opentui-island`
-- Island: separate module that Bun can import, such as `.ts`, `.tsx`, `.js`, or `.jsx`
+- Keep the host app in Node.
+- Render the embedded OpenTUI island in a local Bun sidecar.
+- Forward resize, focus, keyboard, and mouse input across the process boundary.
+- Reuse one island module across `pi-tui`, Ink, and lower-level hosts.
 
 ## Install
 
-1. Install Bun 1.3+ on the machine running the host app.
-2. Install `opentui-island`, React, OpenTUI, and your host runtime.
+Requirements:
+
+- Node 18+
+- Bun 1.3+
+- React
+- one host runtime: `@mariozechner/pi-tui` or `ink`
 
 For `pi-tui`:
 
@@ -43,11 +32,9 @@ For Ink:
 npm i opentui-island react @opentui/core @opentui/react ink
 ```
 
-`@mariozechner/pi-tui` and `ink` are optional peers. Install the host runtime you plan to use.
+## Quick start
 
-## Write an island
-
-An island is a separate module that the Bun sidecar can import:
+Write an island module that Bun can import:
 
 ```tsx
 /** @jsxImportSource @opentui/react */
@@ -75,7 +62,7 @@ export default function CounterIsland({ label = "default" }: { label?: string })
 }
 ```
 
-## Use in pi-tui
+Mount it in `pi-tui`:
 
 ```tsx
 import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
@@ -88,7 +75,10 @@ const surface = await createPiTuiOpenTuiSurface({
   height: 4,
   initialWidth: terminal.columns,
   requestRender: () => tui.requestRender(),
-  island: { module: new URL("./counter.island.tsx", import.meta.url), props: { label: "alpha" } },
+  island: {
+    module: new URL("./counter.island.tsx", import.meta.url),
+    props: { label: "alpha" },
+  },
 });
 
 tui.addChild(surface);
@@ -106,41 +96,10 @@ tui.addInputListener((data) => {
 
 tui.start();
 await surface.sync(terminal.columns);
-
-await surface.updateProps({ label: "beta" });
 await surface.waitUntilReady();
-
-if (surface.readyState === "error") {
-  throw surface.readyError;
-}
 ```
 
-For mouse input in `pi-tui`, also call `attachPiTuiMouseSupport(tui, surface)` and set explicit island bounds with `surface.setScreenBounds(...)`. See [`examples/pi-tui-live.mjs`](examples/pi-tui-live.mjs).
-
-## Use in Pi
-
-Pi extensions can also host `opentui-island` surfaces.
-
-The repo keeps Pi examples in [`examples/pi/`](examples/pi/), with reusable island modules in [`examples/islands/`](examples/islands/).
-
-Typical flow:
-
-```bash
-bun run build
-pi -e ./examples/pi/index.ts
-```
-
-Then inside Pi try:
-
-```text
-/opentui-counter-demo
-/opentui-diff-demo ./examples/pi/sample.diff
-/opentui-mouse-demo
-```
-
-The Pi example also demonstrates replacing Pi's inline `edit` result with a custom diff renderer while keeping the built-in edit behavior. See [`examples/pi/README.md`](examples/pi/README.md).
-
-## Use in Ink
+Mount it in Ink:
 
 ```tsx
 /** @jsxImportSource react */
@@ -152,64 +111,24 @@ render(
   <InkOpenTuiSurface
     height={3}
     width={24}
-    island={{ module: new URL("./counter.island.tsx", import.meta.url), props: { label: "alpha" } }}
+    island={{
+      module: new URL("./counter.island.tsx", import.meta.url),
+      props: { label: "alpha" },
+    }}
     onReady={() => {
       console.log("island ready");
-    }}
-    onError={(error) => {
-      console.error(error);
     }}
   />,
 );
 ```
 
-## Ready state
+## Notes
 
-`pi-tui` surfaces expose ready state directly:
+- In `pi-tui`, calling `surface.setIsland(...)` again with the same module and new props updates the mounted island without a remount.
+- `pi-tui` surfaces expose `ready`, `readyState`, `readyError`, and `waitUntilReady()`.
+- Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
 
-```ts
-surface.ready;
-surface.readyState;
-surface.readyError;
-await surface.waitUntilReady();
-```
-
-Ink surfaces expose lifecycle callbacks:
-
-```tsx
-<InkOpenTuiSurface
-  island={island}
-  height={3}
-  onReady={() => {
-    console.log("ready");
-  }}
-  onError={(error) => {
-    console.error(error);
-  }}
-  onReadyStateChange={(snapshot) => {
-    console.log(snapshot.state, snapshot.error);
-  }}
-/>
-```
-
-## Update props
-
-Low-level hosts can update props after mount without swapping to a different island module:
-
-```ts
-const host = await createOpenTuiSidecarHost({
-  size: { width: 24, height: 4 },
-});
-
-await host.mount({
-  module: new URL("./counter.island.tsx", import.meta.url),
-  props: { label: "alpha" },
-});
-
-await host.updateProps({ label: "beta" });
-```
-
-## Try the demos
+## Demos
 
 ```bash
 git clone https://github.com/benvinegar/opentui-island.git
@@ -224,51 +143,26 @@ bun run demo:pi-tui
 bun run demo:ink
 ```
 
-- `smoke` exercises the low-level sidecar client directly.
-- `smoke:pi-tui` and `smoke:ink` run the host app under Node and verify the adapters end to end.
-- `demo:pi-tui` launches a live `ProcessTerminal` app under Node with keyboard, click, and wheel input inside the embedded island.
-- `demo:ink` launches a live Ink app under Node with keyboard input forwarded into the embedded island.
-
-## Package entrypoints
-
-- `opentui-island` - `createOpenTuiSidecarHost(...)`, shared types, ANSI helpers, frame diffing
-- `opentui-island/pi-tui` - `createPiTuiOpenTuiSurface(...)` and `attachPiTuiMouseSupport(...)`
-- `opentui-island/ink` - `InkOpenTuiSurface`
-
-## Status
-
-Experimental, but working.
-
-Current constraints:
-
-- Bun is still required locally for the renderer sidecar
-- island modules must be loadable by Bun
-- `pi-tui` mouse support needs explicit island bounds
-- Ink forwards keyboard input; mouse bridging is not implemented yet
+- `smoke:pi-tui` and `smoke:ink` run the host app under Node.
+- Pi extension examples live in [`examples/pi/`](examples/pi/README.md).
 
 ## Development
 
 ```bash
 bun run check
-bun run build
-bun run check:node-imports
 bun test
 bun run test:node-integration
-
-bun run smoke
-bun run smoke:pi-tui
-bun run smoke:ink
-
-bun run demo:pi-tui
-bun run demo:ink
 ```
-
-Git installs a `pre-commit` hook via `simple-git-hooks` that runs `bun run check`.
 
 ## Support
 
 - Bugs and feature requests: [GitHub issues](https://github.com/benvinegar/opentui-island/issues)
-- Reference examples: [`examples/`](examples)
+- Pi extension examples: [`examples/pi/README.md`](examples/pi/README.md)
+- Repo examples: [`examples/`](examples)
+
+## Security
+
+Use the [GitHub Security](https://github.com/benvinegar/opentui-island/security) tab for sensitive reports.
 
 ## License
 
