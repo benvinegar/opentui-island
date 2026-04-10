@@ -34,4 +34,4 @@ jobs:
         run: bun run test:node-integration
 
       - name: TTY smoke tests
-        run: bun run test:tty-smoke
+        run: OPENTUI_TTY_SMOKE_INK=0 bun run test:tty-smoke

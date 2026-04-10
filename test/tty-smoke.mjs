@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const tuistoryBin = fileURLToPath(new URL("../node_modules/.bin/tuistory", import.meta.url));
+const shouldRunInkStory = process.env.OPENTUI_TTY_SMOKE_INK !== "0";
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -107,6 +108,8 @@ async function runInkStory() {
 }
 
 await runPiTuiStory();
-await runInkStory();
+if (shouldRunInkStory) {
+  await runInkStory();
+}
 
 console.log("tty smoke ok");
