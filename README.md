@@ -133,6 +133,21 @@ render(
 
 Islands can emit structured events back to the host with `useOpenTuiIslandBridge()`.
 
+Lifecycle semantics:
+
+- Bridge events are a live stream. They are delivered only to listeners and waiters that are already attached when the island emits them.
+- Events emitted before `onEvent(...)` or `waitForEvent(...)` is attached are not replayed later.
+- `onEvent(...)` and `waitForEvent(...)` are independent. One event can notify listeners and also resolve every matching waiter.
+- Matching waiters resolve from future events only. `waitForEvent(...)` does not inspect past events.
+- Pending `waitForEvent(...)` calls reject when `destroy()` closes the host.
+- Event order matches the order the host receives them from the sidecar.
+
+Command buffering semantics:
+
+- `sendCommand(...)` is different from events: commands sent immediately after `mount(...)` are buffered until the island registers its first `onCommand(...)` handler.
+- That buffering is only for host -> island commands. Island -> host events are not queued or replayed.
+- For result-style flows, attach your host listener or waiter before the user can trigger the island event.
+
 Inside the island:
 
 ```tsx
