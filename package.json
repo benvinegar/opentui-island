@@ -88,7 +88,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@mariozechner/pi-tui": "^0.65.2",
+    "@mariozechner/pi-tui": ">=0.65.0 <1",
     "@opentui/core": "^0.1.97",
     "@opentui/react": "^0.1.97",
     "ink": "^7.0.0",
