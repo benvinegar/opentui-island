@@ -1,7 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import type { OpenTuiBridgeEvent, OpenTuiBridgeWaitOptions } from "../core/bridge.js";
+import type {
+  OpenTuiBridgeEvent,
+  OpenTuiBridgeEventOfType,
+  OpenTuiBridgePayload,
+  OpenTuiBridgeWaitOptions,
+} from "../core/bridge.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../core/host.js";
 import {
   resolveOpenTuiIslandSource,
@@ -345,7 +350,26 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     await this.request("updateProps", { props });
   }
 
-  onEvent(handler: (event: OpenTuiBridgeEvent) => void) {
+  onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
+  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ): () => void;
+  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    typeOrHandler: TType | ((event: OpenTuiBridgeEvent) => void),
+    maybeHandler?: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ) {
+    const handler =
+      typeof typeOrHandler === "string"
+        ? (event: OpenTuiBridgeEvent) => {
+            if (event.type !== typeOrHandler) {
+              return;
+            }
+
+            maybeHandler?.(event as OpenTuiBridgeEventOfType<TType, TPayload>);
+          }
+        : typeOrHandler;
+
     this.eventListeners.add(handler);
     return () => {
       this.eventListeners.delete(handler);
@@ -356,11 +380,29 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     await this.request("sendCommand", { command: event });
   }
 
+  waitForEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    options?: OpenTuiBridgeWaitOptions,
+  ): Promise<OpenTuiBridgeEventOfType<TType, TPayload>>;
   waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
     match: (event: OpenTuiBridgeEvent) => event is TEvent,
+    options?: OpenTuiBridgeWaitOptions,
+  ): Promise<TEvent>;
+  waitForEvent<
+    TType extends string,
+    TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+    TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent,
+  >(
+    typeOrMatch: TType | ((event: OpenTuiBridgeEvent) => event is TEvent),
     options: OpenTuiBridgeWaitOptions = {},
   ) {
     const timeoutMs = options.timeoutMs ?? 0;
+    const match =
+      typeof typeOrMatch === "string"
+        ? (event: OpenTuiBridgeEvent): event is OpenTuiBridgeEventOfType<TType, TPayload> =>
+            event.type === typeOrMatch
+        : typeOrMatch;
+
     return new Promise<TEvent>((resolve, reject) => {
       const pending: PendingEventWait = {
         match,

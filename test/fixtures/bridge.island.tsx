@@ -23,18 +23,12 @@ export default function BridgeIsland() {
       }
 
       if (event.name === "s") {
-        bridge.emit({
-          type: "save",
-          payload: { text },
-        });
+        bridge.emit("save", { text });
         return;
       }
 
       if (event.name === "c") {
-        bridge.emit({
-          type: "cancel",
-          payload: null,
-        });
+        bridge.emit("cancel", null);
       }
     },
     { release: true },

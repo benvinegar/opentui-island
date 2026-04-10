@@ -8,6 +8,7 @@ import {
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
 import type {
   OpenTuiBridgeEvent,
+  OpenTuiBridgeEventOfType,
   OpenTuiBridgePayload,
   OpenTuiBridgeWaitOptions,
 } from "../../core/bridge.js";
@@ -302,7 +303,26 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     }
   }
 
-  onEvent(handler: (event: OpenTuiBridgeEvent) => void) {
+  onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
+  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ): () => void;
+  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    typeOrHandler: TType | ((event: OpenTuiBridgeEvent) => void),
+    maybeHandler?: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ) {
+    const handler =
+      typeof typeOrHandler === "string"
+        ? (event: OpenTuiBridgeEvent) => {
+            if (event.type !== typeOrHandler) {
+              return;
+            }
+
+            maybeHandler?.(event as OpenTuiBridgeEventOfType<TType, TPayload>);
+          }
+        : typeOrHandler;
+
     return this.host.onEvent((event) => {
       if (!this.currentIsland) {
         return;
@@ -322,15 +342,26 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     await this.sync(this.lastWidth);
   }
 
+  waitForEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    options?: OpenTuiBridgeWaitOptions,
+  ): Promise<OpenTuiBridgeEventOfType<TType, TPayload>>;
   waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
     match: (event: OpenTuiBridgeEvent) => event is TEvent,
+    options?: OpenTuiBridgeWaitOptions,
+  ): Promise<TEvent>;
+  waitForEvent<TType extends string, TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
+    typeOrMatch: TType | ((event: OpenTuiBridgeEvent) => event is TEvent),
     options?: OpenTuiBridgeWaitOptions,
   ) {
     if (!this.currentIsland) {
       throw new Error("OpenTUI island has not been mounted yet.");
     }
 
-    return this.host.waitForEvent(match, options);
+    return this.host.waitForEvent(
+      typeOrMatch as TType & ((event: OpenTuiBridgeEvent) => event is TEvent),
+      options,
+    );
   }
 
   /** Forward one raw pi-tui input sequence into the hosted OpenTUI island. */

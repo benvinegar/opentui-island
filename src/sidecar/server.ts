@@ -11,6 +11,7 @@ import {
   type OpenTuiBridgeEvent,
   type OpenTuiBridgeEventHandler,
   type OpenTuiIslandBridge,
+  toOpenTuiBridgeEvent,
 } from "../core/bridge.js";
 import type { OpenTuiIslandProps, ResolvedOpenTuiIslandSource } from "../core/island.js";
 import type { OffscreenOpenTuiHost } from "./offscreen-host.js";
@@ -67,8 +68,8 @@ function createIslandBridge() {
   };
 
   const bridge: OpenTuiIslandBridge & { dispatchCommand: (event: OpenTuiBridgeEvent) => void } = {
-    emit(event) {
-      writeEvent(event);
+    emit(typeOrEvent: string | OpenTuiBridgeEvent, payload?: OpenTuiBridgeEvent["payload"]) {
+      writeEvent(toOpenTuiBridgeEvent(typeOrEvent, payload));
     },
     onCommand(handler) {
       commandListeners.add(handler);
