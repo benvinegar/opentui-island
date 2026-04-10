@@ -33,5 +33,8 @@ jobs:
       - name: Node host integration tests
         run: bun run test:node-integration
 
+      - name: Package verification
+        run: bun run check:pack && bun run check:node-imports
+
       - name: TTY smoke tests
         run: OPENTUI_TTY_SMOKE_INK=0 bun run test:tty-smoke
