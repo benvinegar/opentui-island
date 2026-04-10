@@ -221,13 +221,12 @@ bridge.emit("save", { text: exportedText });
 In a `pi-tui` host:
 
 ```ts
-const result = await surface.waitForEventType<"save", { text: string }>("save");
+const result = await surface.waitForEvent<"save", { text: string }>("save");
 
 await ctx.ui.pasteToEditor(result.payload.text);
 ```
 
-Low-level hosts also support `onEvent(...)`, `onEventType(...)`, `waitForEvent(...)`,
-`waitForEventType(...)`, and `sendCommand(...)`.
+Low-level hosts also support overloaded `onEvent(...)`, `waitForEvent(...)`, and `sendCommand(...)`.
 
 ## Demos
 

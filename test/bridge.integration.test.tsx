@@ -224,7 +224,7 @@ describe("island event bridge", () => {
 
     try {
       await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
-      const saveWait = host.waitForEventType<"save", { text: string }>("save");
+      const saveWait = host.waitForEvent<"save", { text: string }>("save");
       await host.sendCommand({ type: "setText", payload: "hello" });
       await host.renderFrame();
       await host.sendKey({ sequence: "s" });
@@ -232,7 +232,7 @@ describe("island event bridge", () => {
       const result = await saveWait;
       expect(result.payload.text).toBe("hello");
 
-      const cancelWait = host.waitForEventType<"cancel", null>("cancel");
+      const cancelWait = host.waitForEvent<"cancel", null>("cancel");
       await host.sendKey({ sequence: "c" });
       const cancel = await cancelWait;
       expect(cancel.type).toBe("cancel");
@@ -257,7 +257,7 @@ describe("island event bridge", () => {
       tui.addChild(surface);
       tui.setFocus(surface);
       await surface.sync(32);
-      const saveWait = surface.waitForEventType<"save", { text: string }>("save");
+      const saveWait = surface.waitForEvent<"save", { text: string }>("save");
       await surface.sendCommand({ type: "setText", payload: "from-pi" });
       await surface.sync(32);
       await surface.sendInput("s");
@@ -417,7 +417,7 @@ describe("island event bridge", () => {
     try {
       await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
       const events: Array<{ text: string }> = [];
-      const unsubscribe = host.onEventType<"save", { text: string }>("save", (event) => {
+      const unsubscribe = host.onEvent<"save", { text: string }>("save", (event) => {
         events.push(event.payload);
       });
 
