@@ -129,6 +129,43 @@ render(
 - Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
 - Ink also forwards mouse input in interactive TTY sessions.
 
+## Props, Events, And Commands
+
+`opentui-island` exposes three coordination paths between the Node host and the Bun-rendered island:
+
+- `props` for declarative state the host owns
+- bridge `events` for island-originated notifications or results
+- `commands` for imperative host-originated actions
+
+Use `props` when the value should describe the island's current state after mount or remount.
+
+- initial document text
+- selected item id
+- current title, filters, or view mode
+- host-driven updates via `updateProps(...)` or `setIsland(...)`
+
+Use bridge `events` when the island needs to tell the host that something happened.
+
+- modal `save` or `cancel` results
+- export completed
+- selection submitted
+- validation failed and the host should react
+
+Use `commands` when the host needs to tell the island to do something now.
+
+- reset local island state
+- focus a panel or input
+- trigger an export or reload
+- ask the island to reveal or scroll to something
+
+Rules of thumb:
+
+- If the value should still be true after a remount, make it a prop.
+- If the island is reporting an outcome back to the host, emit an event.
+- If the host is requesting an action, send a command.
+- Prefer props for normal state flow and commands for exceptional or imperative coordination.
+- Prefer an event for a command result rather than trying to model request/response through props.
+
 ## Result bridge
 
 Islands can emit structured events back to the host with `useOpenTuiIslandBridge()`.
