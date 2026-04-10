@@ -21,6 +21,7 @@ import {
   type Component,
   type TUI,
 } from "@mariozechner/pi-tui";
+import { runPiResultEditorDemo } from "./result-editor.js";
 
 type Surface = Component & {
   focused: boolean;
@@ -501,6 +502,29 @@ export default function openTuiIslandPiExamples(pi: ExtensionAPI) {
         ctx.ui.notify(`Closed diff from ${diff.source}.`, "info");
       } catch (error) {
         ctx.ui.notify(`Failed to load diff: ${formatError(error)}`, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("opentui-editor-demo", {
+    description: "Open a hosted island editor and return its saved text to the Pi host",
+    handler: async (_args, ctx: ExtensionCommandContext) => {
+      try {
+        const result = await runPiResultEditorDemo(ctx);
+        if (result.type === "save") {
+          const maybePasteToEditor = (
+            ctx.ui as {
+              pasteToEditor?: (text: string) => Promise<void> | void;
+            }
+          ).pasteToEditor;
+          await maybePasteToEditor?.(result.payload.text);
+          ctx.ui.notify("Saved island text back to the host.", "success");
+          return;
+        }
+
+        ctx.ui.notify("Cancelled island editor.", "info");
+      } catch (error) {
+        ctx.ui.notify(`Hosted editor failed: ${formatError(error)}`, "error");
       }
     },
   });
