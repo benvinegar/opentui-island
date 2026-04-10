@@ -198,12 +198,12 @@ async function testNodeBridgeHost() {
   try {
     await host.mount({ module: bridgeIslandModule });
     const eventWait = host.waitForEvent(isSaveEvent);
-    await host.sendCommand({ type: "setArt", payload: "node-art" });
+    await host.sendCommand({ type: "setText", payload: "node-text" });
     await host.renderFrame();
     await host.sendKey({ sequence: "s" });
 
     const event = await eventWait;
-    assert.equal(event.payload.art, "node-art");
+    assert.equal(event.payload.text, "node-text");
   } finally {
     await host.destroy();
   }

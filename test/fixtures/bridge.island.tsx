@@ -6,12 +6,12 @@ import { useOpenTuiIslandBridge } from "../../src/index.js";
 
 export default function BridgeIsland() {
   const bridge = useOpenTuiIslandBridge();
-  const [art, setArt] = useState("initial-art");
+  const [text, setText] = useState("initial-text");
 
   useEffect(() => {
     return bridge.onCommand((event) => {
-      if (event.type === "setArt" && typeof event.payload === "string") {
-        setArt(event.payload);
+      if (event.type === "setText" && typeof event.payload === "string") {
+        setText(event.payload);
       }
     });
   }, [bridge]);
@@ -25,7 +25,7 @@ export default function BridgeIsland() {
       if (event.name === "s") {
         bridge.emit({
           type: "save",
-          payload: { art },
+          payload: { text },
         });
         return;
       }
@@ -42,7 +42,7 @@ export default function BridgeIsland() {
 
   return (
     <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>
-      <text>{`art:${art}`}</text>
+      <text>{`text:${text}`}</text>
     </box>
   );
 }

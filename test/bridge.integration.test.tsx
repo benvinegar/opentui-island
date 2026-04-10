@@ -115,7 +115,7 @@ class FakeModalHost implements OpenTuiHost {
     if (event.type === "close" && typeof event.payload === "string") {
       this.emit({
         type: "save",
-        payload: { art: event.payload },
+        payload: { text: event.payload },
       });
     }
   }
@@ -196,7 +196,7 @@ class FakeModalHost implements OpenTuiHost {
 function isSaveEvent(event: {
   type: string;
   payload: unknown;
-}): event is { type: "save"; payload: { art: string } } {
+}): event is { type: "save"; payload: { text: string } } {
   return event.type === "save";
 }
 
@@ -232,12 +232,12 @@ describe("island event bridge", () => {
     try {
       await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
       const saveWait = host.waitForEvent(isSaveEvent);
-      await host.sendCommand({ type: "setArt", payload: "hello" });
+      await host.sendCommand({ type: "setText", payload: "hello" });
       await host.renderFrame();
       await host.sendKey({ sequence: "s" });
 
       const result = await saveWait;
-      expect(result.payload.art).toBe("hello");
+      expect(result.payload.text).toBe("hello");
 
       const cancelWait = host.waitForEvent(isCancelEvent);
       await host.sendKey({ sequence: "c" });
@@ -265,12 +265,12 @@ describe("island event bridge", () => {
       tui.setFocus(surface);
       await surface.sync(32);
       const saveWait = surface.waitForEvent(isSaveEvent);
-      await surface.sendCommand({ type: "setArt", payload: "from-pi" });
+      await surface.sendCommand({ type: "setText", payload: "from-pi" });
       await surface.sync(32);
       await surface.sendInput("s");
 
       const result = await saveWait;
-      expect(result.payload.art).toBe("from-pi");
+      expect(result.payload.text).toBe("from-pi");
     } finally {
       await surface.destroy();
     }
@@ -290,14 +290,14 @@ describe("island event bridge", () => {
     );
 
     try {
-      expect(await waitForFrameContains(app, "art:initial-art")).toContain("art:initial-art");
+      expect(await waitForFrameContains(app, "text:initial-text")).toContain("text:initial-text");
 
       app.stdin.write("s");
       await Bun.sleep(50);
       expect(events.some((event) => event.type === "save")).toBe(true);
       expect(events.find((event) => event.type === "save")).toEqual({
         type: "save",
-        payload: { art: "initial-art" },
+        payload: { text: "initial-text" },
       });
     } finally {
       app.unmount();
@@ -351,7 +351,7 @@ describe("island event bridge", () => {
       await host.sendKey({ sequence: "s" });
 
       const goodResult = await goodWait;
-      expect(goodResult.payload.art).toBe("initial-art");
+      expect(goodResult.payload.text).toBe("initial-text");
 
       const matcherError = await badWait;
       expect(matcherError).toBeInstanceOf(Error);
@@ -368,13 +368,13 @@ describe("island event bridge", () => {
 
     try {
       await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
-      await host.sendCommand({ type: "setArt", payload: "queued-art" });
+      await host.sendCommand({ type: "setText", payload: "queued-text" });
       await host.renderFrame();
       const saveWait = host.waitForEvent(isSaveEvent, { timeoutMs: 1000 });
       await host.sendKey({ sequence: "s" });
 
       const result = await saveWait;
-      expect(result.payload.art).toBe("queued-art");
+      expect(result.payload.text).toBe("queued-text");
     } finally {
       await host.destroy();
     }
@@ -384,7 +384,7 @@ describe("island event bridge", () => {
     const terminal = new NullTerminal(40, 10);
     const tui = new TUI(terminal);
     const host = new FakeModalHost({ width: 40, height: 3 });
-    const modal = await createPiTuiOpenTuiModal<"save", { art: string }>({
+    const modal = await createPiTuiOpenTuiModal<"save", { text: string }>({
       tui,
       host,
       height: 3,
@@ -400,11 +400,11 @@ describe("island event bridge", () => {
       await modal.surface.sendCommand({ type: "close", payload: "from-modal" });
 
       const result = await modal.waitForResult();
-      expect(result.payload.art).toBe("from-modal");
+      expect(result.payload.text).toBe("from-modal");
 
       let error: Error | null = null;
       try {
-        await modal.surface.sendCommand({ type: "setArt", payload: "after-close" });
+        await modal.surface.sendCommand({ type: "setText", payload: "after-close" });
       } catch (caught) {
         error = caught as Error;
       }

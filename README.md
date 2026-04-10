@@ -104,7 +104,7 @@ For modal-style `pi-tui` flows that should close on a bridge event:
 ```ts
 import { createPiTuiOpenTuiModal } from "opentui-island/pi-tui";
 
-const modal = await createPiTuiOpenTuiModal<"save" | "cancel", { art: string } | null>({
+const modal = await createPiTuiOpenTuiModal<"save" | "cancel", { text: string } | null>({
   tui,
   height: terminal.rows - 2,
   island: {
@@ -118,7 +118,7 @@ modal.focus();
 const result = await modal.waitForResult();
 
 if (result.type === "save") {
-  await ctx.ui.pasteToEditor(result.payload.art);
+  await ctx.ui.pasteToEditor(result.payload.text);
 }
 ```
 
@@ -217,7 +217,7 @@ const bridge = useOpenTuiIslandBridge();
 
 bridge.emit({
   type: "save",
-  payload: { art: exportedArt },
+  payload: { text: exportedText },
 });
 ```
 
@@ -225,10 +225,10 @@ In a `pi-tui` host:
 
 ```ts
 const result = await surface.waitForEvent(
-  (event): event is { type: "save"; payload: { art: string } } => event.type === "save",
+  (event): event is { type: "save"; payload: { text: string } } => event.type === "save",
 );
 
-await ctx.ui.pasteToEditor(result.payload.art);
+await ctx.ui.pasteToEditor(result.payload.text);
 ```
 
 Low-level hosts also support `onEvent(...)`, `waitForEvent(...)`, and `sendCommand(...)`.
