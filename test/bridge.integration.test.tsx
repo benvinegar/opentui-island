@@ -180,24 +180,20 @@ describe("island event bridge", () => {
       });
 
       const goodWait = host.waitForEvent(isSaveEvent);
-      const badWait = host.waitForEvent(() => {
-        throw new Error("matcher boom");
-      });
+      const badWait = host
+        .waitForEvent(() => {
+          throw new Error("matcher boom");
+        })
+        .catch((error) => error as Error);
 
       await host.sendKey({ sequence: "s" });
 
       const goodResult = await goodWait;
       expect(goodResult.payload.art).toBe("initial-art");
 
-      let matcherError: Error | null = null;
-      try {
-        await badWait;
-      } catch (caught) {
-        matcherError = caught as Error;
-      }
-
-      expect(matcherError).not.toBeNull();
-      expect(matcherError?.message).toContain("matcher boom");
+      const matcherError = await badWait;
+      expect(matcherError).toBeInstanceOf(Error);
+      expect(matcherError.message).toContain("matcher boom");
     } finally {
       await host.destroy();
     }
