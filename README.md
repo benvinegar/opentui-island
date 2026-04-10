@@ -99,6 +99,29 @@ await surface.sync(terminal.columns);
 await surface.waitUntilReady();
 ```
 
+For modal-style `pi-tui` flows that should close on a bridge event:
+
+```ts
+import { createPiTuiOpenTuiModal } from "opentui-island/pi-tui";
+
+const modal = await createPiTuiOpenTuiModal<"save" | "cancel", { art: string } | null>({
+  tui,
+  height: terminal.rows - 2,
+  island: {
+    module: new URL("./editor.island.tsx", import.meta.url),
+  },
+  closeOn: ["save", "cancel"],
+});
+
+tui.addChild(modal.surface);
+modal.focus();
+const result = await modal.waitForResult();
+
+if (result.type === "save") {
+  await ctx.ui.pasteToEditor(result.payload.art);
+}
+```
+
 Mount it in Ink:
 
 ```tsx

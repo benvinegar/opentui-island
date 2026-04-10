@@ -6,7 +6,11 @@ import {
   type Terminal,
 } from "@mariozechner/pi-tui";
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
-import type { OpenTuiBridgeEvent, OpenTuiBridgeWaitOptions } from "../../core/bridge.js";
+import type {
+  OpenTuiBridgeEvent,
+  OpenTuiBridgePayload,
+  OpenTuiBridgeWaitOptions,
+} from "../../core/bridge.js";
 import { diffHostFrames } from "../../core/frame-diff.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
 import {
@@ -31,6 +35,26 @@ export interface CreatePiTuiOpenTuiSurfaceOptions
   requestRender?: () => void;
   initialWidth?: number;
   host?: OpenTuiHost;
+}
+
+export interface CreatePiTuiOpenTuiModalOptions extends Omit<
+  CreatePiTuiOpenTuiSurfaceOptions,
+  "requestRender" | "initialWidth"
+> {
+  tui: Pick<TUI, "addInputListener" | "requestRender" | "setFocus" | "terminal">;
+  closeOn: readonly string[];
+  enableMouse?: boolean;
+  focusOnOpen?: boolean;
+  closeWaitOptions?: OpenTuiBridgeWaitOptions;
+}
+
+export interface PiTuiOpenTuiModal<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent> {
+  surface: PiTuiOpenTuiSurface;
+  result: Promise<TEvent>;
+  focus(): void;
+  waitForResult(): Promise<TEvent>;
+  sync(): Promise<void>;
+  destroy(): Promise<void>;
 }
 
 export interface PiTuiScreenBounds {
@@ -415,6 +439,105 @@ export function attachPiTuiMouseSupport(
   return () => {
     detach();
     disablePiTuiMouseMode(tui.terminal);
+  };
+}
+
+/**
+ * Create a modal-style pi-tui helper that owns surface focus, optional mouse support,
+ * close-on-event waiting, and teardown around one hosted island.
+ */
+export async function createPiTuiOpenTuiModal<
+  TType extends string,
+  TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+>(
+  options: CreatePiTuiOpenTuiModalOptions,
+): Promise<PiTuiOpenTuiModal<OpenTuiBridgeEvent<TType, TPayload>>> {
+  const surface = await createPiTuiOpenTuiSurface({
+    ...options,
+    requestRender: () => options.tui.requestRender(),
+    initialWidth: Math.max(1, options.tui.terminal.columns),
+  });
+
+  const focus = () => {
+    surface.focused = true;
+    options.tui.setFocus(surface);
+  };
+
+  if (options.focusOnOpen ?? true) {
+    focus();
+  }
+
+  const detachMouseSupport =
+    options.enableMouse === false ? () => {} : attachPiTuiMouseSupport(options.tui, surface);
+  let destroyed = false;
+  let settled = false;
+  let resolveResult!: (event: OpenTuiBridgeEvent<TType, TPayload>) => void;
+  let rejectResult!: (error: Error) => void;
+  const closeTimeoutMs = options.closeWaitOptions?.timeoutMs ?? 0;
+  const closeOn = new Set(options.closeOn);
+  const result = new Promise<OpenTuiBridgeEvent<TType, TPayload>>((resolve, reject) => {
+    resolveResult = resolve;
+    rejectResult = reject;
+  });
+  const closeTimeout =
+    closeTimeoutMs > 0
+      ? setTimeout(() => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          rejectResult(
+            new Error(`OpenTUI sidecar event wait timed out after ${closeTimeoutMs}ms.`),
+          );
+        }, closeTimeoutMs)
+      : null;
+  const detachCloseListener = surface.onEvent((event) => {
+    if (settled || !closeOn.has(event.type)) {
+      return;
+    }
+
+    settled = true;
+    if (closeTimeout) {
+      clearTimeout(closeTimeout);
+    }
+    resolveResult(event as OpenTuiBridgeEvent<TType, TPayload>);
+  });
+
+  const destroy = async () => {
+    if (destroyed) {
+      return;
+    }
+
+    destroyed = true;
+    detachCloseListener();
+    detachMouseSupport();
+    try {
+      await surface.destroy();
+    } finally {
+      if (!settled) {
+        settled = true;
+        if (closeTimeout) {
+          clearTimeout(closeTimeout);
+        }
+        rejectResult(new Error("OpenTUI sidecar has already been closed."));
+      }
+    }
+  };
+
+  return {
+    surface,
+    result,
+    focus,
+    waitForResult: async () => {
+      try {
+        return await result;
+      } finally {
+        await destroy();
+      }
+    },
+    sync: () => surface.sync(options.tui.terminal.columns),
+    destroy,
   };
 }
 

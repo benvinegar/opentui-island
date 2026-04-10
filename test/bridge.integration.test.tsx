@@ -4,9 +4,23 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
 import { render } from "ink-testing-library";
-import { createOpenTuiSidecarHost } from "../src/index.js";
+import {
+  createOpenTuiSidecarHost,
+  type HostFrame,
+  type HostKeyInput,
+  type HostMouseInput,
+  type HostSize,
+  type OpenTuiBridgeEvent,
+  type OpenTuiBridgeWaitOptions,
+  type OpenTuiHost,
+  type OpenTuiIslandProps,
+  type OpenTuiIslandSource,
+} from "../src/index.js";
 import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
-import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
+import {
+  createPiTuiOpenTuiModal,
+  createPiTuiOpenTuiSurface,
+} from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
   constructor(
@@ -29,6 +43,154 @@ class NullTerminal implements Terminal {
   clearFromCursor() {}
   clearScreen() {}
   setTitle(_title: string) {}
+}
+
+class FakeModalHost implements OpenTuiHost {
+  private readonly eventListeners = new Set<(event: OpenTuiBridgeEvent) => void>();
+  private readonly pendingWaits = new Set<{
+    match: (event: OpenTuiBridgeEvent) => boolean;
+    resolve: (event: OpenTuiBridgeEvent) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout> | null;
+  }>();
+  private closed = false;
+  private size: HostSize;
+
+  constructor(size: HostSize) {
+    this.size = size;
+  }
+
+  private emit(event: OpenTuiBridgeEvent) {
+    for (const listener of this.eventListeners) {
+      listener(event);
+    }
+
+    const matchingWaits = [] as Array<{
+      match: (event: OpenTuiBridgeEvent) => boolean;
+      resolve: (event: OpenTuiBridgeEvent) => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout> | null;
+    }>;
+    for (const pending of this.pendingWaits) {
+      if (!pending.match(event)) {
+        continue;
+      }
+
+      matchingWaits.push(pending);
+    }
+
+    for (const pending of matchingWaits) {
+      this.pendingWaits.delete(pending);
+      if (pending.timeout) {
+        clearTimeout(pending.timeout);
+      }
+      pending.resolve(event);
+    }
+  }
+
+  private ensureOpen() {
+    if (this.closed) {
+      throw new Error("OpenTUI sidecar has already been closed.");
+    }
+  }
+
+  async mount(_island: OpenTuiIslandSource) {
+    this.ensureOpen();
+  }
+
+  async updateProps(_props?: OpenTuiIslandProps) {
+    this.ensureOpen();
+  }
+
+  onEvent(handler: (event: OpenTuiBridgeEvent) => void) {
+    this.ensureOpen();
+    this.eventListeners.add(handler);
+    return () => {
+      this.eventListeners.delete(handler);
+    };
+  }
+
+  async sendCommand(event: OpenTuiBridgeEvent) {
+    this.ensureOpen();
+    if (event.type === "close" && typeof event.payload === "string") {
+      this.emit({
+        type: "save",
+        payload: { art: event.payload },
+      });
+    }
+  }
+
+  waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
+    match: (event: OpenTuiBridgeEvent) => event is TEvent,
+    options: OpenTuiBridgeWaitOptions = {},
+  ) {
+    this.ensureOpen();
+    const timeoutMs = options.timeoutMs ?? 0;
+    return new Promise<TEvent>((resolve, reject) => {
+      const pending = {
+        match,
+        resolve: (event: OpenTuiBridgeEvent) => {
+          resolve(event as TEvent);
+        },
+        reject,
+        timeout:
+          timeoutMs > 0
+            ? setTimeout(() => {
+                this.pendingWaits.delete(pending);
+                reject(new Error(`OpenTUI sidecar event wait timed out after ${timeoutMs}ms.`));
+              }, timeoutMs)
+            : null,
+      };
+      this.pendingWaits.add(pending);
+    });
+  }
+
+  async resize(size: HostSize) {
+    this.ensureOpen();
+    this.size = size;
+  }
+
+  async focus() {
+    this.ensureOpen();
+  }
+
+  async blur() {
+    this.ensureOpen();
+  }
+
+  async sendKey(_input: HostKeyInput) {
+    this.ensureOpen();
+  }
+
+  async sendMouse(_input: HostMouseInput) {
+    this.ensureOpen();
+  }
+
+  async renderFrame(): Promise<HostFrame> {
+    this.ensureOpen();
+    return {
+      width: this.size.width,
+      height: this.size.height,
+      lines: Array.from({ length: this.size.height }, () => ({ spans: [] })),
+    };
+  }
+
+  async destroy() {
+    if (this.closed) {
+      return;
+    }
+
+    this.closed = true;
+    const error = new Error("OpenTUI sidecar has already been closed.");
+    for (const pending of this.pendingWaits) {
+      if (pending.timeout) {
+        clearTimeout(pending.timeout);
+      }
+      pending.reject(error);
+    }
+    this.pendingWaits.clear();
+    this.eventListeners.clear();
+  }
 }
 
 function isSaveEvent(event: {
@@ -215,6 +377,42 @@ describe("island event bridge", () => {
       expect(result.payload.art).toBe("queued-art");
     } finally {
       await host.destroy();
+    }
+  });
+
+  test("provides a pi-tui modal helper for close-on-event flows", async () => {
+    const terminal = new NullTerminal(40, 10);
+    const tui = new TUI(terminal);
+    const host = new FakeModalHost({ width: 40, height: 3 });
+    const modal = await createPiTuiOpenTuiModal<"save", { art: string }>({
+      tui,
+      host,
+      height: 3,
+      closeOn: ["save"],
+      enableMouse: false,
+      island: { module: new URL("./fixtures/bridge.island.tsx", import.meta.url) },
+    });
+
+    try {
+      tui.addChild(modal.surface);
+      modal.focus();
+      await modal.sync();
+      await modal.surface.sendCommand({ type: "close", payload: "from-modal" });
+
+      const result = await modal.waitForResult();
+      expect(result.payload.art).toBe("from-modal");
+
+      let error: Error | null = null;
+      try {
+        await modal.surface.sendCommand({ type: "setArt", payload: "after-close" });
+      } catch (caught) {
+        error = caught as Error;
+      }
+
+      expect(error).not.toBeNull();
+      expect(error?.message).toContain("already been closed");
+    } finally {
+      await modal.destroy();
     }
   });
 });
