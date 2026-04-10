@@ -8,6 +8,7 @@
     "examples/islands/counter.island.tsx",
     "examples/islands/playground.island.tsx",
     "examples/islands/diff-viewer.island.tsx",
-    "examples/islands/mouse-playground.island.tsx"
+    "examples/islands/mouse-playground.island.tsx",
+    "examples/islands/note-editor.island.tsx"
   ]
 }
