@@ -11,14 +11,38 @@ export interface OpenTuiBridgeEvent<
   payload: TPayload;
 }
 
+export type OpenTuiBridgeEventOfType<
+  TType extends string,
+  TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+> = OpenTuiBridgeEvent<TType, TPayload>;
+
 export interface OpenTuiBridgeWaitOptions {
   timeoutMs?: number;
 }
 
 export type OpenTuiBridgeEventHandler = (event: OpenTuiBridgeEvent) => void;
 
+/** Normalize the shorthand `type, payload` form into a full bridge event object. */
+export function toOpenTuiBridgeEvent<TType extends string, TPayload extends OpenTuiBridgePayload>(
+  typeOrEvent: TType | OpenTuiBridgeEvent<TType, TPayload>,
+  payload?: TPayload,
+): OpenTuiBridgeEvent<TType, TPayload> {
+  if (typeof typeOrEvent === "string") {
+    return {
+      type: typeOrEvent,
+      payload: payload as TPayload,
+    };
+  }
+
+  return typeOrEvent;
+}
+
 export interface OpenTuiIslandBridge {
   emit(event: OpenTuiBridgeEvent): void;
+  emit<TType extends string, TPayload extends OpenTuiBridgePayload>(
+    type: TType,
+    payload: TPayload,
+  ): void;
   onCommand(handler: OpenTuiBridgeEventHandler): () => void;
 }
 

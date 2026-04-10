@@ -1,7 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import type { OpenTuiBridgeEvent, OpenTuiBridgeWaitOptions } from "../core/bridge.js";
+import type {
+  OpenTuiBridgeEvent,
+  OpenTuiBridgeEventOfType,
+  OpenTuiBridgePayload,
+  OpenTuiBridgeWaitOptions,
+} from "../core/bridge.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../core/host.js";
 import {
   resolveOpenTuiIslandSource,
@@ -352,6 +357,19 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     };
   }
 
+  onEventType<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ) {
+    return this.onEvent((event) => {
+      if (event.type !== type) {
+        return;
+      }
+
+      handler(event as OpenTuiBridgeEventOfType<TType, TPayload>);
+    });
+  }
+
   async sendCommand(event: OpenTuiBridgeEvent) {
     await this.request("sendCommand", { command: event });
   }
@@ -378,6 +396,16 @@ class SidecarOpenTuiHost implements OpenTuiHost {
       };
       this.pendingEventWaits.add(pending);
     });
+  }
+
+  waitForEventType<
+    TType extends string,
+    TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+  >(type: TType, options?: OpenTuiBridgeWaitOptions) {
+    return this.waitForEvent(
+      (event): event is OpenTuiBridgeEventOfType<TType, TPayload> => event.type === type,
+      options,
+    );
   }
 
   async resize(size: HostSize) {

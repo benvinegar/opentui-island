@@ -8,6 +8,7 @@ import {
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
 import type {
   OpenTuiBridgeEvent,
+  OpenTuiBridgeEventOfType,
   OpenTuiBridgePayload,
   OpenTuiBridgeWaitOptions,
 } from "../../core/bridge.js";
@@ -312,6 +313,19 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     });
   }
 
+  onEventType<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+    type: TType,
+    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  ) {
+    return this.onEvent((event) => {
+      if (event.type !== type) {
+        return;
+      }
+
+      handler(event as OpenTuiBridgeEventOfType<TType, TPayload>);
+    });
+  }
+
   async sendCommand(event: OpenTuiBridgeEvent) {
     if (!this.currentIsland) {
       throw new Error("OpenTUI island has not been mounted yet.");
@@ -331,6 +345,17 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     }
 
     return this.host.waitForEvent(match, options);
+  }
+
+  waitForEventType<
+    TType extends string,
+    TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+  >(type: TType, options?: OpenTuiBridgeWaitOptions) {
+    if (!this.currentIsland) {
+      throw new Error("OpenTUI island has not been mounted yet.");
+    }
+
+    return this.host.waitForEventType<TType, TPayload>(type, options);
   }
 
   /** Forward one raw pi-tui input sequence into the hosted OpenTUI island. */
