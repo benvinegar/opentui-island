@@ -46,19 +46,59 @@ function writeEvent(event: OpenTuiBridgeEvent) {
 
 function createIslandBridge() {
   const commandListeners = new Set<OpenTuiBridgeEventHandler>();
+  const pendingCommands: OpenTuiBridgeEvent[] = [];
+
+  const dispatchToListeners = (event: OpenTuiBridgeEvent) => {
+    let firstError: Error | null = null;
+    for (const handler of commandListeners) {
+      try {
+        handler(event);
+      } catch (error) {
+        if (!firstError) {
+          firstError =
+            error instanceof Error
+              ? error
+              : new Error(`OpenTUI island command handler threw: ${String(error)}`);
+        }
+      }
+    }
+
+    return firstError;
+  };
+
   const bridge: OpenTuiIslandBridge & { dispatchCommand: (event: OpenTuiBridgeEvent) => void } = {
     emit(event) {
       writeEvent(event);
     },
     onCommand(handler) {
       commandListeners.add(handler);
+
+      if (pendingCommands.length > 0) {
+        // Hosts can send commands immediately after mount, before the island's effects subscribe.
+        // Flush the queue on first subscription so initialization commands are delivered reliably.
+        const queued = pendingCommands.splice(0, pendingCommands.length);
+        for (const event of queued) {
+          const error = dispatchToListeners(event);
+          if (error) {
+            throw error;
+          }
+        }
+      }
+
       return () => {
         commandListeners.delete(handler);
       };
     },
     dispatchCommand(event) {
-      for (const handler of commandListeners) {
-        handler(event);
+      if (commandListeners.size === 0) {
+        // Command registration usually happens in an effect, so commands may arrive one render early.
+        pendingCommands.push(event);
+        return;
+      }
+
+      const error = dispatchToListeners(event);
+      if (error) {
+        throw error;
       }
     },
   };

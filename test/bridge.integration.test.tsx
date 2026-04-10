@@ -142,4 +142,83 @@ describe("island event bridge", () => {
       app.cleanup();
     }
   });
+
+  test("rejects pending event waits when the host is destroyed", async () => {
+    const host = await createOpenTuiSidecarHost({
+      size: { width: 32, height: 3 },
+    });
+
+    try {
+      await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
+      const pending = host.waitForEvent(isSaveEvent);
+      await host.destroy();
+
+      let error: Error | null = null;
+      try {
+        await pending;
+      } catch (caught) {
+        error = caught as Error;
+      }
+
+      expect(error).not.toBeNull();
+      expect(error?.message).toContain("already been closed");
+    } finally {
+      await host.destroy();
+    }
+  });
+
+  test("isolates throwing event listeners and matchers", async () => {
+    const host = await createOpenTuiSidecarHost({
+      size: { width: 32, height: 3 },
+    });
+
+    try {
+      await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
+
+      host.onEvent(() => {
+        throw new Error("listener boom");
+      });
+
+      const goodWait = host.waitForEvent(isSaveEvent);
+      const badWait = host.waitForEvent(() => {
+        throw new Error("matcher boom");
+      });
+
+      await host.sendKey({ sequence: "s" });
+
+      const goodResult = await goodWait;
+      expect(goodResult.payload.art).toBe("initial-art");
+
+      let matcherError: Error | null = null;
+      try {
+        await badWait;
+      } catch (caught) {
+        matcherError = caught as Error;
+      }
+
+      expect(matcherError).not.toBeNull();
+      expect(matcherError?.message).toContain("matcher boom");
+    } finally {
+      await host.destroy();
+    }
+  });
+
+  test("buffers commands sent before island command handlers register", async () => {
+    const host = await createOpenTuiSidecarHost({
+      size: { width: 32, height: 3 },
+    });
+
+    try {
+      await host.mount({ module: new URL("./fixtures/bridge.island.tsx", import.meta.url) });
+      await host.sendCommand({ type: "setArt", payload: "queued-art" });
+      await host.renderFrame();
+      const saveWait = host.waitForEvent(isSaveEvent, { timeoutMs: 1000 });
+      await host.sendKey({ sequence: "s" });
+
+      const result = await saveWait;
+      expect(result.payload.art).toBe("queued-art");
+    } finally {
+      await host.destroy();
+    }
+  });
 });

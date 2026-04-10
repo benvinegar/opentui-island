@@ -56,6 +56,10 @@ function describeSpawnFailure(bunCommand: string, error: unknown) {
   return `Failed to start the OpenTUI sidecar with '${bunCommand}'. Install Bun or pass 'bunCommand'. ${describeUnknownError(error)}`;
 }
 
+function describeBridgeError(error: unknown) {
+  return error instanceof Error ? (error.stack ?? error.message) : String(error);
+}
+
 class SidecarOpenTuiHost implements OpenTuiHost {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly eventListeners = new Set<(event: OpenTuiBridgeEvent) => void>();
@@ -189,16 +193,46 @@ class SidecarOpenTuiHost implements OpenTuiHost {
 
   private dispatchEvent(event: OpenTuiBridgeEvent) {
     for (const listener of this.eventListeners) {
-      listener(event);
+      // Listener failures should not prevent other subscribers or waiters from seeing the event.
+      void Promise.resolve()
+        .then(() => {
+          listener(event);
+        })
+        .catch((error) => {
+          console.error(`OpenTUI island event listener threw:\n${describeBridgeError(error)}`);
+        });
     }
 
     const matchingWaits: PendingEventWait[] = [];
+    const rejectedWaits: Array<{ pending: PendingEventWait; error: Error }> = [];
     for (const pending of this.pendingEventWaits) {
-      if (!pending.match(event)) {
+      let matched = false;
+      // A throwing matcher is treated as a failed waiter, not a bridge-wide dispatch failure.
+      try {
+        matched = pending.match(event);
+      } catch (error) {
+        rejectedWaits.push({
+          pending,
+          error:
+            error instanceof Error
+              ? error
+              : new Error(`OpenTUI sidecar event matcher threw: ${String(error)}`),
+        });
+        continue;
+      }
+
+      if (!matched) {
         continue;
       }
 
       matchingWaits.push(pending);
+    }
+
+    // Classify waiters first, then mutate the live waiter set after iteration completes.
+    for (const { pending, error } of rejectedWaits) {
+      this.pendingEventWaits.delete(pending);
+      this.clearEventWaitTimeout(pending);
+      pending.reject(error);
     }
 
     for (const pending of matchingWaits) {
@@ -326,7 +360,7 @@ class SidecarOpenTuiHost implements OpenTuiHost {
     match: (event: OpenTuiBridgeEvent) => event is TEvent,
     options: OpenTuiBridgeWaitOptions = {},
   ) {
-    const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
+    const timeoutMs = options.timeoutMs ?? 0;
     return new Promise<TEvent>((resolve, reject) => {
       const pending: PendingEventWait = {
         match,

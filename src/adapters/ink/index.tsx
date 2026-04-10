@@ -295,6 +295,7 @@ export function InkOpenTuiSurface({
 
     const handleMouseData = (data: string | Buffer | Uint8Array) => {
       mouseBufferRef.current += toInputString(data);
+      // PTY mouse sequences can arrive split across chunks, so keep a short-lived remainder buffer.
       const parsed = parseSgrMouseStream(mouseBufferRef.current);
       mouseBufferRef.current = parsed.rest;
 
@@ -324,6 +325,8 @@ export function InkOpenTuiSurface({
         }
 
         if (handledMouse) {
+          // Ink can surface the trailing SGR terminator as plain key input in the same tick.
+          // Ignore that short tail so a mouse click does not also look like typing "m".
           suppressMouseKeyUntilRef.current = Date.now() + 50;
           await sync();
         }
