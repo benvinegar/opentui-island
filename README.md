@@ -258,6 +258,7 @@ bun run test:tty-smoke
 ## Support
 
 - Bugs and feature requests: [GitHub issues](https://github.com/benvinegar/opentui-island/issues)
+- Release history: [GitHub releases](https://github.com/benvinegar/opentui-island/releases)
 - Pi extension examples: [`examples/pi/README.md`](examples/pi/README.md)
 - Repo examples: [`examples/`](examples)
 
