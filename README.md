@@ -4,11 +4,11 @@ Embed OpenTUI islands inside Node terminal UIs such as `pi-tui` and Ink.
 
 [![npm version](https://img.shields.io/npm/v/opentui-island?style=for-the-badge)](https://www.npmjs.com/package/opentui-island)
 [![CI](https://img.shields.io/github/actions/workflow/status/benvinegar/opentui-island/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/benvinegar/opentui-island/actions/workflows/ci.yml)
-[![Runtime Node host + Bun sidecar](https://img.shields.io/badge/runtime-node%20host%20%2B%20bun%20sidecar-111827?style=for-the-badge)](https://bun.sh)
 
-- Keep the host app in Node.
+## Why
+
+- Keep your host app in Node.
 - Render the embedded OpenTUI island in a local Bun sidecar.
-- Forward resize, focus, keyboard, and mouse input across the process boundary.
 - Reuse one island module across `pi-tui`, Ink, and lower-level hosts.
 
 ## Install
@@ -18,15 +18,14 @@ Requirements:
 - Node 18+
 - Bun 1.3+
 - React
-- one host runtime: `@mariozechner/pi-tui` or `ink`
 
-For `pi-tui`:
+Install with `pi-tui`:
 
 ```bash
 npm i opentui-island react @opentui/core @opentui/react @mariozechner/pi-tui
 ```
 
-For Ink:
+Install with Ink:
 
 ```bash
 npm i opentui-island react @opentui/core @opentui/react ink
@@ -34,7 +33,7 @@ npm i opentui-island react @opentui/core @opentui/react ink
 
 ## Quick start
 
-Write an island module that Bun can import:
+Create one island module:
 
 ```tsx
 /** @jsxImportSource @opentui/react */
@@ -42,7 +41,7 @@ Write an island module that Bun can import:
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
 
-export default function CounterIsland({ label = "default" }: { label?: string }) {
+export default function CounterIsland() {
   const [count, setCount] = useState(0);
 
   useKeyboard(
@@ -56,7 +55,7 @@ export default function CounterIsland({ label = "default" }: { label?: string })
 
   return (
     <box style={{ width: "100%", height: "100%", paddingLeft: 1 }}>
-      <text fg="#00ff88">{`label:${label} count:${count}`}</text>
+      <text fg="#00ff88">{`count:${count}`}</text>
     </box>
   );
 }
@@ -77,7 +76,6 @@ const surface = await createPiTuiOpenTuiSurface({
   requestRender: () => tui.requestRender(),
   island: {
     module: new URL("./counter.island.tsx", import.meta.url),
-    props: { label: "alpha" },
   },
 });
 
@@ -99,168 +97,28 @@ await surface.sync(terminal.columns);
 await surface.waitUntilReady();
 ```
 
-For modal-style `pi-tui` flows that should close on a bridge event:
+Press `a` inside the island to increment the counter. Press `q` to quit.
 
-```ts
-import { createPiTuiOpenTuiModal } from "opentui-island/pi-tui";
+## Docs
 
-const modal = await createPiTuiOpenTuiModal<"save" | "cancel", { text: string } | null>({
-  tui,
-  height: terminal.rows - 2,
-  island: {
-    module: new URL("./editor.island.tsx", import.meta.url),
-  },
-  closeOn: ["save", "cancel"],
-});
-
-tui.addChild(modal.surface);
-modal.focus();
-const result = await modal.waitForResult();
-
-if (result.type === "save") {
-  await ctx.ui.pasteToEditor(result.payload.text);
-}
-```
-
-Mount it in Ink:
-
-```tsx
-/** @jsxImportSource react */
-
-import { render } from "ink";
-import { InkOpenTuiSurface } from "opentui-island/ink";
-
-render(
-  <InkOpenTuiSurface
-    height={3}
-    width={24}
-    island={{
-      module: new URL("./counter.island.tsx", import.meta.url),
-      props: { label: "alpha" },
-    }}
-    onReady={() => {
-      console.log("island ready");
-    }}
-  />,
-);
-```
-
-## Notes
-
-- In `pi-tui`, calling `surface.setIsland(...)` again with the same module and new props updates the mounted island without a remount.
-- `pi-tui` surfaces expose `ready`, `readyState`, `readyError`, and `waitUntilReady()`.
-- Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
-- Ink also forwards mouse input in interactive TTY sessions.
-
-## Props, Events, And Commands
-
-`opentui-island` exposes three coordination paths between the Node host and the Bun-rendered island:
-
-- `props` for declarative state the host owns
-- bridge `events` for island-originated notifications or results
-- `commands` for imperative host-originated actions
-
-Use `props` when the value should describe the island's current state after mount or remount.
-
-- initial document text
-- selected item id
-- current title, filters, or view mode
-- host-driven updates via `updateProps(...)` or `setIsland(...)`
-
-Use bridge `events` when the island needs to tell the host that something happened.
-
-- modal `save` or `cancel` results
-- export completed
-- selection submitted
-- validation failed and the host should react
-
-Use `commands` when the host needs to tell the island to do something now.
-
-- reset local island state
-- focus a panel or input
-- trigger an export or reload
-- ask the island to reveal or scroll to something
-
-Rules of thumb:
-
-- If the value should still be true after a remount, make it a prop.
-- If the island is reporting an outcome back to the host, emit an event.
-- If the host is requesting an action, send a command.
-- Prefer props for normal state flow and commands for exceptional or imperative coordination.
-- Prefer an event for a command result rather than trying to model request/response through props.
-
-## Result bridge
-
-Islands can emit structured events back to the host with `useOpenTuiIslandBridge()`.
-
-Lifecycle semantics:
-
-- Bridge events are a live stream. They are delivered only to listeners and waiters that are already attached when the island emits them.
-- Events emitted before `onEvent(...)` or `waitForEvent(...)` is attached are not replayed later.
-- `onEvent(...)` and `waitForEvent(...)` are independent. One event can notify listeners and also resolve every matching waiter.
-- Matching waiters resolve from future events only. `waitForEvent(...)` does not inspect past events.
-- Pending `waitForEvent(...)` calls reject when `destroy()` closes the host.
-- Event order matches the order the host receives them from the sidecar.
-
-Command buffering semantics:
-
-- `sendCommand(...)` is different from events: commands sent immediately after `mount(...)` are buffered until the island registers its first `onCommand(...)` handler.
-- That buffering is only for host -> island commands. Island -> host events are not queued or replayed.
-- For result-style flows, attach your host listener or waiter before the user can trigger the island event.
-
-Inside the island:
-
-```tsx
-import { useOpenTuiIslandBridge } from "opentui-island";
-
-const bridge = useOpenTuiIslandBridge();
-
-bridge.emit("save", { text: exportedText });
-```
-
-In a `pi-tui` host:
-
-```ts
-const result = await surface.waitForEvent<"save", { text: string }>("save");
-
-await ctx.ui.pasteToEditor(result.payload.text);
-```
-
-Low-level hosts also support overloaded `onEvent(...)`, `waitForEvent(...)`, and `sendCommand(...)`.
-
-## Demos
-
-```bash
-git clone https://github.com/benvinegar/opentui-island.git
-cd opentui-island
-bun install
-
-bun run smoke
-bun run smoke:pi-tui
-bun run smoke:ink
-
-bun run demo:pi-tui
-bun run demo:ink
-```
-
-- `smoke:pi-tui` and `smoke:ink` run the host app under Node.
-- Pi extension examples live in [`examples/pi/`](examples/pi/README.md).
+- API and advanced usage: [`docs/api.md`](docs/api.md)
+- Pi extension examples: [`examples/pi/README.md`](examples/pi/README.md)
+- Repo examples: [`examples/`](examples)
+- Release history: [GitHub releases](https://github.com/benvinegar/opentui-island/releases)
 
 ## Development
 
 ```bash
+bun install
 bun run check
 bun test
 bun run test:node-integration
-bun run test:tty-smoke
 ```
 
-## Support
+## Contributing
 
 - Bugs and feature requests: [GitHub issues](https://github.com/benvinegar/opentui-island/issues)
-- Release history: [GitHub releases](https://github.com/benvinegar/opentui-island/releases)
-- Pi extension examples: [`examples/pi/README.md`](examples/pi/README.md)
-- Repo examples: [`examples/`](examples)
+- Local agent and repo guidance: [`AGENTS.md`](AGENTS.md)
 
 ## Security
 
