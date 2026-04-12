@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import React from "react";
 import { TUI } from "@mariozechner/pi-tui";
 import { render } from "ink-testing-library";
-import { createOpenTuiSidecarHost, hostFrameToAnsiLines } from "../dist/index.js";
+import {
+  createOpenTuiIslandController,
+  createOpenTuiSidecarHost,
+  hostFrameToAnsiLines,
+} from "../dist/index.js";
 import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
 import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
@@ -93,6 +97,36 @@ async function testNodeSidecarHost() {
     );
   } finally {
     await host.destroy();
+  }
+}
+
+async function testNodeIslandController() {
+  const controller = await createOpenTuiIslandController({
+    island: { module: islandModule, props: { label: "alpha" } },
+    size: {
+      width: 32,
+      height: 3,
+    },
+  });
+
+  try {
+    assert(hostFrameToAnsiLines(controller.frame).join("\n").includes("label:alpha count:0"));
+
+    await controller.sendKey({ sequence: "a" });
+    assert(
+      hostFrameToAnsiLines(await controller.syncFrame())
+        .join("\n")
+        .includes("label:alpha count:1"),
+    );
+
+    await controller.updateProps({ label: "beta" });
+    assert(
+      hostFrameToAnsiLines(await controller.syncFrame())
+        .join("\n")
+        .includes("label:beta count:1"),
+    );
+  } finally {
+    await controller.destroy();
   }
 }
 
@@ -210,6 +244,7 @@ async function testNodeBridgeHost() {
 }
 
 await testNodeSidecarHost();
+await testNodeIslandController();
 await testNodePiTuiHost();
 await testNodeInkHost();
 await testNodeInkMouseHost();

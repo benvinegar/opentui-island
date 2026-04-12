@@ -5,6 +5,7 @@ import type { Key } from "ink";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
 import type { OpenTuiBridgeEvent } from "../../core/bridge.js";
+import type { OpenTuiIslandController } from "../../core/controller.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
 import {
   resolveOpenTuiIslandSource,
@@ -36,6 +37,7 @@ export interface InkOpenTuiSurfaceProps
   isActive?: boolean;
   fallback?: string;
   onEvent?: (event: OpenTuiBridgeEvent) => void;
+  controller?: OpenTuiIslandController;
 }
 
 function normalizeLines(lines: string[], width: number, height: number) {
@@ -133,6 +135,7 @@ export function InkOpenTuiSurface({
   onReadyStateChange,
   kittyKeyboard,
   otherModifiersMode,
+  controller,
 }: InkOpenTuiSurfaceProps) {
   const windowSize = useWindowSize();
   const { stdin, isRawModeSupported } = useStdin();
@@ -140,6 +143,7 @@ export function InkOpenTuiSurface({
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
   const inputActive = isActive && isRawModeSupported;
   const hostRef = useRef<OpenTuiHost | null>(null);
+  const controllerRef = useRef<OpenTuiIslandController | null>(controller ?? null);
   const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
   const readyTrackerRef = useRef(new OpenTuiReadyTracker());
   const eventUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -156,12 +160,20 @@ export function InkOpenTuiSurface({
     error instanceof Error ? error : new Error(String(error));
 
   const sync = async () => {
-    if (!hostRef.current) return;
-
     try {
-      await hostRef.current.resize({ width: resolvedWidth, height });
-      const frame = await hostRef.current.renderFrame();
-      setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
+      if (controllerRef.current) {
+        // Shared-controller mode keeps Ink aligned with pi-tui and lower-level hosts.
+        const frame = await controllerRef.current.syncFrame({ width: resolvedWidth, height });
+        setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
+      } else if (hostRef.current) {
+        // Keep the original Ink-owned host path so the adapter stays stable when no controller is passed in.
+        await hostRef.current.resize({ width: resolvedWidth, height });
+        const frame = await hostRef.current.renderFrame();
+        setLines(normalizeLines(hostFrameToAnsiLines(frame), resolvedWidth, height));
+      } else {
+        return;
+      }
+
       if (readyTrackerRef.current.getSnapshot().state === "loading") {
         readyTrackerRef.current.markReady();
       }
@@ -186,7 +198,8 @@ export function InkOpenTuiSurface({
         readyTrackerRef.current.startLoading();
       }
 
-      if (!hostRef.current) {
+      if (!controllerRef.current && !hostRef.current) {
+        // Ink still supports self-managed hosting, but an injected controller lets callers share one lifecycle object across adapters.
         hostRef.current = await createOpenTuiSidecarHost({
           size: { width: resolvedWidth, height },
           kittyKeyboard,
@@ -198,17 +211,32 @@ export function InkOpenTuiSurface({
         }
       }
 
-      if (cancelled || !hostRef.current) return;
-
-      if (shouldUpdateProps) {
-        await hostRef.current.updateProps(resolvedIsland.props);
-      } else if (shouldMount) {
-        await hostRef.current.mount(resolvedIsland);
+      if (cancelled) {
+        return;
       }
 
-      mountedIslandRef.current = resolvedIsland;
-      if (isActive) await hostRef.current.focus();
-      else await hostRef.current.blur();
+      if (controllerRef.current) {
+        if (shouldUpdateProps) {
+          await controllerRef.current.updateProps(resolvedIsland.props);
+        } else if (shouldMount) {
+          await controllerRef.current.setIsland(resolvedIsland);
+        }
+
+        mountedIslandRef.current = resolvedIsland;
+        if (isActive) await controllerRef.current.focus();
+        else await controllerRef.current.blur();
+      } else if (hostRef.current) {
+        if (shouldUpdateProps) {
+          await hostRef.current.updateProps(resolvedIsland.props);
+        } else if (shouldMount) {
+          await hostRef.current.mount(resolvedIsland);
+        }
+
+        mountedIslandRef.current = resolvedIsland;
+        if (isActive) await hostRef.current.focus();
+        else await hostRef.current.blur();
+      }
+
       await sync();
     };
 
@@ -226,12 +254,14 @@ export function InkOpenTuiSurface({
     return () => {
       cancelled = true;
     };
-  }, [island, resolvedWidth, height, kittyKeyboard, otherModifiersMode, isActive]);
+  }, [island, resolvedWidth, height, kittyKeyboard, otherModifiersMode, isActive, controller]);
 
   useEffect(() => {
     eventUnsubscribeRef.current?.();
     eventUnsubscribeRef.current = null;
-    if (hostRef.current && onEvent) {
+    if (controllerRef.current && onEvent) {
+      eventUnsubscribeRef.current = controllerRef.current.onEvent(onEvent);
+    } else if (hostRef.current && onEvent) {
       eventUnsubscribeRef.current = hostRef.current.onEvent(onEvent);
     }
 
@@ -246,17 +276,25 @@ export function InkOpenTuiSurface({
       eventUnsubscribeRef.current?.();
       eventUnsubscribeRef.current = null;
       const host = hostRef.current;
+      const activeController = controllerRef.current;
       hostRef.current = null;
+      controllerRef.current = null;
       mountedIslandRef.current = null;
       if (host) {
         void host.destroy();
       }
+      if (activeController && !controller) {
+        // Only destroy controllers that Ink created itself. Borrowed controllers still belong to the caller.
+        void activeController.destroy();
+      }
     };
-  }, []);
+  }, [controller]);
 
   useInput(
     (input, key) => {
-      if (!inputActive || !hostRef.current) return;
+      if ((!controllerRef.current && !hostRef.current) || !inputActive) {
+        return;
+      }
 
       if (
         Date.now() < suppressMouseKeyUntilRef.current &&
@@ -270,7 +308,11 @@ export function InkOpenTuiSurface({
       if (!sequence) return;
 
       void (async () => {
-        await hostRef.current?.sendKey({ sequence });
+        if (controllerRef.current) {
+          await controllerRef.current.sendKey({ sequence });
+        } else {
+          await hostRef.current?.sendKey({ sequence });
+        }
         await sync();
       })();
     },
@@ -295,11 +337,14 @@ export function InkOpenTuiSurface({
 
     const handleMouseData = (data: string | Buffer | Uint8Array) => {
       mouseBufferRef.current += toInputString(data);
-      // PTY mouse sequences can arrive split across chunks, so keep a short-lived remainder buffer.
       const parsed = parseSgrMouseStream(mouseBufferRef.current);
       mouseBufferRef.current = parsed.rest;
 
-      if (parsed.events.length === 0 || !hostRef.current || !metrics.hasMeasured) {
+      if (
+        parsed.events.length === 0 ||
+        (!controllerRef.current && !hostRef.current) ||
+        !metrics.hasMeasured
+      ) {
         return;
       }
 
@@ -321,12 +366,15 @@ export function InkOpenTuiSurface({
             x: event.x - bounds.left,
             y: event.y - bounds.top,
           };
-          await hostRef.current?.sendMouse(localEvent);
+
+          if (controllerRef.current) {
+            await controllerRef.current.sendMouse(localEvent);
+          } else {
+            await hostRef.current?.sendMouse(localEvent);
+          }
         }
 
         if (handledMouse) {
-          // Ink can surface the trailing SGR terminator as plain key input in the same tick.
-          // Ignore that short tail so a mouse click does not also look like typing "m".
           suppressMouseKeyUntilRef.current = Date.now() + 50;
           await sync();
         }

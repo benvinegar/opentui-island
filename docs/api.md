@@ -2,7 +2,37 @@
 
 Reference for host adapters, bridge usage, event flow, and the included demo commands.
 
-## Pick a host
+## Start with the controller
+
+The shared piece is `createOpenTuiIslandController(...)`.
+
+It owns:
+
+- which island is mounted
+- current props
+- ready state
+- bridge events and commands
+- frame sync
+
+Use it directly if you want the lowest-level integration:
+
+```ts
+import { createOpenTuiIslandController, hostFrameToAnsiLines } from "opentui-island";
+
+const controller = await createOpenTuiIslandController({
+  island: {
+    module: new URL("./counter.island.tsx", import.meta.url),
+  },
+  size: { width: 32, height: 3 },
+});
+
+await controller.sendKey({ sequence: "a" });
+const frame = await controller.syncFrame();
+
+console.log(hostFrameToAnsiLines(frame).join("\n"));
+```
+
+## Pick a host binding
 
 `opentui-island` has four host entry points:
 
@@ -11,7 +41,7 @@ Reference for host adapters, bridge usage, event flow, and the included demo com
 - `InkOpenTuiSurface` for Ink
 - `createOpenTuiSidecarHost(...)` for lower-level Node hosts
 
-All of them run the island in a Bun sidecar and forward host input into that process.
+All of them run the island in a Bun sidecar and forward host input into that process. The `pi-tui` and Ink bindings can either create their own controller or use one you pass in.
 
 ## Ink example
 
@@ -19,16 +49,23 @@ All of them run the island in a Bun sidecar and forward host input into that pro
 /** @jsxImportSource react */
 
 import { render } from "ink";
+import { createOpenTuiIslandController } from "opentui-island";
 import { InkOpenTuiSurface } from "opentui-island/ink";
+
+const controller = await createOpenTuiIslandController({
+  island: {
+    module: new URL("./counter.island.tsx", import.meta.url),
+    props: { label: "alpha" },
+  },
+  size: { width: 24, height: 3 },
+});
 
 render(
   <InkOpenTuiSurface
+    controller={controller}
     height={3}
     width={24}
-    island={{
-      module: new URL("./counter.island.tsx", import.meta.url),
-      props: { label: "alpha" },
-    }}
+    island={controller.island!}
     onReady={() => {
       console.log("island ready");
     }}
@@ -136,6 +173,7 @@ Host commands behave a little differently:
 
 ## Adapter notes
 
+- `createOpenTuiIslandController(...)` is the shared lifecycle API across runtimes.
 - In `pi-tui`, calling `surface.setIsland(...)` again with the same module and new props updates the mounted island without a remount.
 - `pi-tui` surfaces expose `ready`, `readyState`, `readyError`, and `waitUntilReady()`.
 - Ink surfaces expose `onReady`, `onError`, and `onReadyStateChange` callbacks.
