@@ -43,3 +43,7 @@ export interface CreateOpenTuiHostOptions {
   kittyKeyboard?: boolean;
   otherModifiersMode?: boolean;
 }
+
+export type IslandHost = OpenTuiHost;
+export type IslandHostFactory = OpenTuiHostFactory;
+export type CreateIslandHostOptions = CreateOpenTuiHostOptions;

@@ -1,13 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "bun:test";
-import { createOpenTuiSidecarHost } from "../src/index.js";
+import { createSidecarHost } from "../src/index.js";
 
 describe("sidecar error handling", () => {
   test("reports a clear Bun-not-found error", async () => {
     let error: Error | null = null;
 
     try {
-      await createOpenTuiSidecarHost({
+      await createSidecarHost({
         bunCommand: "/definitely-missing-bun-command",
         size: { width: 24, height: 2 },
       });
@@ -23,7 +23,7 @@ describe("sidecar error handling", () => {
     let error: Error | null = null;
 
     try {
-      await createOpenTuiSidecarHost({
+      await createSidecarHost({
         bunCommand: "bun",
         sidecarPath: fileURLToPath(new URL("./fixtures/hanging-sidecar.mjs", import.meta.url)),
         size: { width: 24, height: 2 },
@@ -41,7 +41,7 @@ describe("sidecar error handling", () => {
     let error: Error | null = null;
 
     try {
-      await createOpenTuiSidecarHost({
+      await createSidecarHost({
         bunCommand: "bun",
         sidecarPath: fileURLToPath(new URL("./fixtures/mismatched-sidecar.mjs", import.meta.url)),
         size: { width: 24, height: 2 },
@@ -56,7 +56,7 @@ describe("sidecar error handling", () => {
 
   test("times out stalled requests after startup", async () => {
     let error: Error | null = null;
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       bunCommand: "bun",
       sidecarPath: fileURLToPath(new URL("./fixtures/stalled-sidecar.mjs", import.meta.url)),
       size: { width: 24, height: 2 },
@@ -76,7 +76,7 @@ describe("sidecar error handling", () => {
   });
 
   test("includes the request method in sidecar response errors", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 24, height: 2 },
     });
 

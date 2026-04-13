@@ -1,8 +1,5 @@
 import { matchesKey, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
-import {
-  attachPiTuiMouseSupport,
-  createPiTuiOpenTuiSurface,
-} from "../dist/adapters/pi-tui/index.js";
+import { attachPiTuiMouseSupport, createPiTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
 const demoInputs = {
   a: "a",
@@ -39,7 +36,7 @@ const footer = new Text(
   0,
 );
 
-const surface = await createPiTuiOpenTuiSurface({
+const surface = await createPiTuiSurface({
   height: Math.max(10, Math.min(14, terminal.rows - 4)),
   initialWidth: Math.max(1, terminal.columns),
   requestRender: () => {

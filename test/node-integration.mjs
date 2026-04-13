@@ -2,13 +2,9 @@ import assert from "node:assert/strict";
 import React from "react";
 import { TUI } from "@mariozechner/pi-tui";
 import { render } from "ink-testing-library";
-import {
-  createOpenTuiIslandController,
-  createOpenTuiSidecarHost,
-  hostFrameToAnsiLines,
-} from "../dist/index.js";
-import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
-import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
+import { createIslandController, createSidecarHost, hostFrameToAnsiLines } from "../dist/index.js";
+import { InkSurface } from "../dist/adapters/ink/index.js";
+import { createPiTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
 const islandModule = new URL("./fixtures/updatable-counter.island.tsx", import.meta.url);
 const mouseIslandModule = new URL("./fixtures/mouse.island.tsx", import.meta.url);
@@ -67,7 +63,7 @@ class NullTerminal {
 }
 
 async function testNodeSidecarHost() {
-  const host = await createOpenTuiSidecarHost({
+  const host = await createSidecarHost({
     size: {
       width: 32,
       height: 3,
@@ -101,7 +97,7 @@ async function testNodeSidecarHost() {
 }
 
 async function testNodeIslandController() {
-  const controller = await createOpenTuiIslandController({
+  const controller = await createIslandController({
     island: { module: islandModule, props: { label: "alpha" } },
     size: {
       width: 32,
@@ -133,7 +129,7 @@ async function testNodeIslandController() {
 async function testNodePiTuiHost() {
   const terminal = new NullTerminal(32, 4);
   const tui = new TUI(terminal);
-  const surface = await createPiTuiOpenTuiSurface({
+  const surface = await createPiTuiSurface({
     height: 3,
     initialWidth: 32,
     requestRender: () => {
@@ -161,7 +157,7 @@ async function testNodePiTuiHost() {
 
 async function testNodeInkHost() {
   const app = render(
-    React.createElement(InkOpenTuiSurface, {
+    React.createElement(InkSurface, {
       island: { module: islandModule, props: { label: "alpha" } },
       height: 2,
       width: 32,
@@ -179,7 +175,7 @@ async function testNodeInkHost() {
     );
 
     app.rerender(
-      React.createElement(InkOpenTuiSurface, {
+      React.createElement(InkSurface, {
         island: { module: islandModule, props: { label: "beta" } },
         height: 2,
         width: 32,
@@ -195,7 +191,7 @@ async function testNodeInkHost() {
 
 async function testNodeInkMouseHost() {
   const app = render(
-    React.createElement(InkOpenTuiSurface, {
+    React.createElement(InkSurface, {
       island: { module: mouseIslandModule },
       height: 2,
       width: 24,
@@ -222,7 +218,7 @@ function isSaveEvent(event) {
 }
 
 async function testNodeBridgeHost() {
-  const host = await createOpenTuiSidecarHost({
+  const host = await createSidecarHost({
     size: {
       width: 32,
       height: 3,

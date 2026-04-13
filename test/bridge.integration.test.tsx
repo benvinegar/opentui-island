@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
 import { render } from "ink-testing-library";
 import {
-  createOpenTuiSidecarHost,
+  createSidecarHost,
   type HostFrame,
   type HostKeyInput,
   type HostMouseInput,
@@ -16,11 +16,8 @@ import {
   type OpenTuiIslandProps,
   type OpenTuiIslandSource,
 } from "../src/index.js";
-import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
-import {
-  createPiTuiOpenTuiModal,
-  createPiTuiOpenTuiSurface,
-} from "../src/adapters/pi-tui/index.js";
+import { InkSurface } from "../src/adapters/ink/index.js";
+import { createPiTuiModal, createPiTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
   constructor(
@@ -218,7 +215,7 @@ async function waitForFrameContains(app: ReturnType<typeof render>, text: string
 
 describe("island event bridge", () => {
   test("lets the low-level sidecar host send commands and await results", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 32, height: 3 },
     });
 
@@ -244,7 +241,7 @@ describe("island event bridge", () => {
   test("lets the pi-tui surface await save events", async () => {
     const terminal = new NullTerminal(32, 4);
     const tui = new TUI(terminal);
-    const surface = await createPiTuiOpenTuiSurface({
+    const surface = await createPiTuiSurface({
       height: 3,
       initialWidth: 32,
       requestRender: () => {
@@ -272,7 +269,7 @@ describe("island event bridge", () => {
   test("lets the Ink surface forward bridge events through props", async () => {
     const events: Array<{ type: string; payload: unknown }> = [];
     const app = render(
-      createElement(InkOpenTuiSurface, {
+      createElement(InkSurface, {
         island: { module: new URL("./fixtures/bridge.island.tsx", import.meta.url) },
         height: 2,
         width: 32,
@@ -299,7 +296,7 @@ describe("island event bridge", () => {
   });
 
   test("rejects pending event waits when the host is destroyed", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 32, height: 3 },
     });
 
@@ -323,7 +320,7 @@ describe("island event bridge", () => {
   });
 
   test("isolates throwing event listeners and matchers", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 32, height: 3 },
     });
 
@@ -355,7 +352,7 @@ describe("island event bridge", () => {
   });
 
   test("buffers commands sent before island command handlers register", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 32, height: 3 },
     });
 
@@ -377,7 +374,7 @@ describe("island event bridge", () => {
     const terminal = new NullTerminal(40, 10);
     const tui = new TUI(terminal);
     const host = new FakeModalHost({ width: 40, height: 3 });
-    const modal = await createPiTuiOpenTuiModal<"save", { text: string }>({
+    const modal = await createPiTuiModal<"save", { text: string }>({
       tui,
       host,
       height: 3,
@@ -410,7 +407,7 @@ describe("island event bridge", () => {
   });
 
   test("lets host code subscribe by event type without a custom type guard", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: { width: 32, height: 3 },
     });
 

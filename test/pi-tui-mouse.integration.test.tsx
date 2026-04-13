@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import {
-  attachPiTuiMouseSupport,
-  createPiTuiOpenTuiSurface,
-} from "../src/adapters/pi-tui/index.js";
+import { attachPiTuiMouseSupport, createPiTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class TestTerminal implements Terminal {
   private inputHandler?: (data: string) => void;
@@ -62,10 +59,7 @@ function createMouseSequence(type: "down" | "up" | "scroll", x: number, y: numbe
   return `\u001B[<${button};${ansiX};${ansiY}${suffix}`;
 }
 
-async function settle(
-  surface: Awaited<ReturnType<typeof createPiTuiOpenTuiSurface>>,
-  width: number,
-) {
+async function settle(surface: Awaited<ReturnType<typeof createPiTuiSurface>>, width: number) {
   await Bun.sleep(0);
   await surface.sync(width);
   await Bun.sleep(0);
@@ -76,7 +70,7 @@ describe("pi-tui mouse adapter", () => {
   test("routes click and scroll events through explicit island bounds", async () => {
     const terminal = new TestTerminal(24, 8);
     const tui = new TUI(terminal);
-    const surface = await createPiTuiOpenTuiSurface({
+    const surface = await createPiTuiSurface({
       height: 4,
       initialWidth: 20,
       requestRender: () => {

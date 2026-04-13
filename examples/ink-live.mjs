@@ -1,7 +1,7 @@
 import { Box, render, Text, useApp, useInput, useStdin } from "ink";
 import React from "react";
 import { Readable } from "node:stream";
-import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
+import { InkSurface } from "../dist/adapters/ink/index.js";
 
 class DemoInputStream extends Readable {
   constructor() {
@@ -46,7 +46,7 @@ function DemoApp() {
       null,
       "The Ink app is running under Node while the embedded island renders in a Bun sidecar. Inside the island: Up/Down move, A increments, click selects, wheel scroll changes panels. App keys: q or Escape quit.",
     ),
-    React.createElement(InkOpenTuiSurface, {
+    React.createElement(InkSurface, {
       height: 10,
       island: { module: new URL("./islands/playground.island.tsx", import.meta.url) },
     }),

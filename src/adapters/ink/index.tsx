@@ -40,6 +40,8 @@ export interface InkOpenTuiSurfaceProps
   controller?: OpenTuiIslandController;
 }
 
+export type InkSurfaceProps = InkOpenTuiSurfaceProps;
+
 function normalizeLines(lines: string[], width: number, height: number) {
   const normalizedWidth = Math.max(1, width);
   const visible = lines.slice(0, height);
@@ -395,3 +397,5 @@ export function InkOpenTuiSurface({
     </Box>
   );
 }
+
+export const InkSurface = InkOpenTuiSurface;
