@@ -31,7 +31,7 @@ function samePropsJson(
 
 export interface InkOpenTuiSurfaceProps
   extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
-  island: OpenTuiIslandSource;
+  island?: OpenTuiIslandSource;
   width?: number;
   height: number;
   isActive?: boolean;
@@ -187,7 +187,22 @@ export function InkOpenTuiSurface({
 
   useEffect(() => {
     let cancelled = false;
-    const resolvedIsland = resolveOpenTuiIslandSource(island);
+    const nextIsland = island ?? controller?.island;
+    if (!nextIsland) {
+      setLines(
+        normalizeLines(
+          ["InkOpenTuiSurface needs an island or a controller with one."],
+          resolvedWidth,
+          height,
+        ),
+      );
+      readyTrackerRef.current.markError(
+        new Error("InkOpenTuiSurface needs an island or a controller with one."),
+      );
+      return;
+    }
+
+    const resolvedIsland = resolveOpenTuiIslandSource(nextIsland);
 
     const ensureHost = async () => {
       const previousIsland = mountedIslandRef.current;

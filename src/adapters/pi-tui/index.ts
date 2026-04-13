@@ -27,7 +27,7 @@ import type { HostFrame, HostMouseInput } from "../../core/types.js";
 export interface CreatePiTuiOpenTuiSurfaceOptions
   extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
   height: number;
-  island: OpenTuiIslandSource;
+  island?: OpenTuiIslandSource;
   requestRender?: () => void;
   initialWidth?: number;
   controller?: OpenTuiIslandController;
@@ -503,11 +503,18 @@ export const createPiTuiModal = createPiTuiOpenTuiModal;
 /** Create a pi-tui component that renders a hosted OpenTUI island. */
 export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfaceOptions) {
   const initialWidth = Math.max(1, options.initialWidth ?? 1);
+  const island = options.island ?? options.controller?.island;
+  if (!island) {
+    throw new Error(
+      "createPiTuiOpenTuiSurface() needs an island unless the controller already has one.",
+    );
+  }
+
   const controller =
     options.controller ??
     (await createOpenTuiIslandController({
       host: options.host,
-      island: options.island,
+      island,
       size: {
         width: initialWidth,
         height: options.height,
@@ -526,7 +533,7 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
     requestRender: options.requestRender,
   });
   try {
-    if (options.controller) {
+    if (options.controller && options.island) {
       await surface.setIsland(options.island);
     }
     return surface;

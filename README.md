@@ -61,29 +61,33 @@ export default function CounterIsland() {
 }
 ```
 
-Create a controller and bind it to `pi-tui`:
+Create the shared controller:
 
 ```tsx
-import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
 import { createIslandController } from "opentui-island";
-import { createPiTuiSurface } from "opentui-island/pi-tui";
 
-const terminal = new ProcessTerminal();
-const tui = new TUI(terminal);
-
+// Create one controller that can be bound to pi-tui, Ink, or a lower-level host.
 const controller = await createIslandController({
-  size: { width: terminal.columns, height: 4 },
   island: {
     module: new URL("./counter.island.tsx", import.meta.url),
   },
 });
+```
+
+Bind it to `pi-tui`:
+
+```tsx
+import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
+import { createPiTuiSurface } from "opentui-island/pi-tui";
+
+const terminal = new ProcessTerminal();
+const tui = new TUI(terminal);
 
 const surface = await createPiTuiSurface({
   controller,
   height: 4,
   initialWidth: terminal.columns,
   requestRender: () => tui.requestRender(),
-  island: controller.island!,
 });
 
 tui.addChild(surface);
@@ -104,9 +108,16 @@ await surface.sync(terminal.columns);
 await surface.waitUntilReady();
 ```
 
-Press `a` inside the island to increment the counter. Press `q` to quit.
+Bind the same controller to Ink:
 
-The same controller API works directly with lower-level hosts and can also be passed into Ink.
+```tsx
+import { render } from "ink";
+import { InkSurface } from "opentui-island/ink";
+
+render(<InkSurface controller={controller} width={24} height={4} />);
+```
+
+Press `a` inside the island to increment the counter. Press `q` to quit in `pi-tui`.
 
 ## Docs
 
