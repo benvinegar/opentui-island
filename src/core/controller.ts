@@ -26,9 +26,10 @@ function hasSameIslandTarget(
 }
 
 export interface CreateOpenTuiIslandControllerOptions
-  extends CreateOpenTuiHostOptions, OpenTuiReadyCallbacks {
+  extends Omit<Partial<CreateOpenTuiHostOptions>, "size">, OpenTuiReadyCallbacks {
   island?: OpenTuiIslandSource;
   host?: OpenTuiHost;
+  size?: HostSize;
 }
 
 /** Shared lifecycle controller used by all host adapters. */
@@ -36,11 +37,22 @@ export class OpenTuiIslandController {
   private currentIsland: ResolvedOpenTuiIslandSource | null = null;
   private cachedFrame: HostFrame | null = null;
   private readonly readyTracker: OpenTuiReadyTracker;
+  private host: OpenTuiHost | null;
+  private readonly hostOptions: Omit<
+    CreateOpenTuiIslandControllerOptions,
+    "island" | "host" | "onReady" | "onError" | "onReadyStateChange"
+  >;
 
   constructor(
-    private readonly host: OpenTuiHost,
+    host: OpenTuiHost | null,
+    hostOptions: Omit<
+      CreateOpenTuiIslandControllerOptions,
+      "island" | "host" | "onReady" | "onError" | "onReadyStateChange"
+    >,
     readyCallbacks?: OpenTuiReadyCallbacks,
   ) {
+    this.host = host;
+    this.hostOptions = hostOptions;
     this.readyTracker = new OpenTuiReadyTracker(readyCallbacks);
   }
 
@@ -76,6 +88,29 @@ export class OpenTuiIslandController {
     return error instanceof Error ? error : new Error(String(error));
   }
 
+  private async ensureHost(size?: HostSize) {
+    if (this.host) {
+      return this.host;
+    }
+
+    const resolvedSize = size ?? this.hostOptions.size;
+    if (!resolvedSize) {
+      throw new Error("OpenTUI island controller needs a size before it can start the sidecar.");
+    }
+
+    this.host = await createOpenTuiSidecarHost({
+      size: resolvedSize,
+      kittyKeyboard: this.hostOptions.kittyKeyboard,
+      otherModifiersMode: this.hostOptions.otherModifiersMode,
+    });
+
+    if (this.currentIsland) {
+      await this.host.mount(this.currentIsland);
+    }
+
+    return this.host;
+  }
+
   private markReadyFrame(frame: HostFrame) {
     this.cachedFrame = frame;
     // Ready means "we have rendered a usable frame", not just "mount/updateProps returned".
@@ -91,6 +126,12 @@ export class OpenTuiIslandController {
       if (hasSameIslandTarget(this.currentIsland, resolvedIsland)) {
         // Reusing the same module/export keeps island-local state intact and turns this into a prop update.
         await this.updateProps(resolvedIsland.props);
+        return;
+      }
+
+      if (!this.host) {
+        this.currentIsland = resolvedIsland;
+        this.cachedFrame = null;
         return;
       }
 
@@ -110,6 +151,15 @@ export class OpenTuiIslandController {
 
     this.readyTracker.startLoading();
     try {
+      if (!this.host) {
+        this.currentIsland = {
+          ...this.currentIsland,
+          props,
+        };
+        this.cachedFrame = null;
+        return;
+      }
+
       await this.host.updateProps(props);
       this.currentIsland = {
         ...this.currentIsland,
@@ -132,7 +182,15 @@ export class OpenTuiIslandController {
     maybeHandler?: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
   ) {
     if (typeof typeOrHandler === "string") {
+      if (!this.host) {
+        throw new Error("OpenTUI island controller must be mounted before subscribing to events.");
+      }
+
       return this.host.onEvent(typeOrHandler, maybeHandler ?? (() => {}));
+    }
+
+    if (!this.host) {
+      throw new Error("OpenTUI island controller must be mounted before subscribing to events.");
     }
 
     return this.host.onEvent(typeOrHandler);
@@ -143,7 +201,8 @@ export class OpenTuiIslandController {
       throw new Error("OpenTUI island has not been mounted yet.");
     }
 
-    await this.host.sendCommand(event);
+    const host = await this.ensureHost();
+    await host.sendCommand(event);
     this.cachedFrame = null;
   }
 
@@ -159,6 +218,10 @@ export class OpenTuiIslandController {
     typeOrMatch: TType | ((event: OpenTuiBridgeEvent) => event is TEvent),
     options?: OpenTuiBridgeWaitOptions,
   ) {
+    if (!this.host) {
+      throw new Error("OpenTUI island controller must be mounted before waiting for events.");
+    }
+
     return this.host.waitForEvent(
       typeOrMatch as TType & ((event: OpenTuiBridgeEvent) => event is TEvent),
       options,
@@ -166,17 +229,19 @@ export class OpenTuiIslandController {
   }
 
   async resize(size: HostSize) {
-    await this.host.resize(size);
+    const host = await this.ensureHost(size);
+    await host.resize(size);
     this.cachedFrame = null;
   }
 
   async syncFrame(size?: HostSize) {
     try {
+      const host = await this.ensureHost(size);
       if (size) {
         // The controller treats size and frame fetch as one operation so adapters can ask for "the next frame at this size".
-        await this.host.resize(size);
+        await host.resize(size);
       }
-      const frame = await this.host.renderFrame();
+      const frame = await host.renderFrame();
       this.markReadyFrame(frame);
       return frame;
     } catch (error) {
@@ -186,46 +251,68 @@ export class OpenTuiIslandController {
   }
 
   async focus() {
+    if (!this.host) {
+      return;
+    }
+
     await this.host.focus();
   }
 
   async blur() {
+    if (!this.host) {
+      return;
+    }
+
     await this.host.blur();
   }
 
   async sendKey(input: HostKeyInput) {
-    await this.host.sendKey(input);
+    const host = await this.ensureHost();
+    await host.sendKey(input);
     this.cachedFrame = null;
   }
 
   async sendMouse(input: HostMouseInput) {
-    await this.host.sendMouse(input);
+    const host = await this.ensureHost();
+    await host.sendMouse(input);
     this.cachedFrame = null;
   }
 
   async destroy() {
-    await this.host.destroy();
+    await this.host?.destroy();
   }
 }
 
 export async function createOpenTuiIslandController(options: CreateOpenTuiIslandControllerOptions) {
   const host =
     options.host ??
-    (await createOpenTuiSidecarHost({
+    (options.size
+      ? await createOpenTuiSidecarHost({
+          size: options.size,
+          kittyKeyboard: options.kittyKeyboard,
+          otherModifiersMode: options.otherModifiersMode,
+        })
+      : null);
+  const controller = new OpenTuiIslandController(
+    host,
+    {
       size: options.size,
       kittyKeyboard: options.kittyKeyboard,
       otherModifiersMode: options.otherModifiersMode,
-    }));
-  const controller = new OpenTuiIslandController(host, {
-    onReady: options.onReady,
-    onError: options.onError,
-    onReadyStateChange: options.onReadyStateChange,
-  });
+    },
+    {
+      onReady: options.onReady,
+      onError: options.onError,
+      onReadyStateChange: options.onReadyStateChange,
+    },
+  );
 
   if (options.island) {
     try {
       await controller.setIsland(options.island);
-      await controller.syncFrame(options.size);
+      if (options.size) {
+        await controller.syncFrame(options.size);
+      }
     } catch (error) {
       await controller.destroy();
       throw error;
