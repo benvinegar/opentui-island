@@ -1,6 +1,6 @@
-import { createOpenTuiSidecarHost, hostFrameToAnsiLines } from "../dist/index.js";
+import { createSidecarHost, hostFrameToAnsiLines } from "../dist/index.js";
 
-const host = await createOpenTuiSidecarHost({
+const host = await createSidecarHost({
   size: {
     width: 24,
     height: 4,

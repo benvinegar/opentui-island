@@ -46,6 +46,8 @@ export interface CreateOpenTuiSidecarHostOptions extends CreateOpenTuiHostOption
   requestTimeoutMs?: number;
 }
 
+export type CreateSidecarHostOptions = CreateOpenTuiSidecarHostOptions;
+
 const DEFAULT_SIDECAR_STARTUP_TIMEOUT_MS = 5_000;
 const DEFAULT_SIDECAR_REQUEST_TIMEOUT_MS = 15_000;
 
@@ -493,3 +495,5 @@ export async function createOpenTuiSidecarHost(options: CreateOpenTuiSidecarHost
     startupTimeoutMs,
   );
 }
+
+export const createSidecarHost = createOpenTuiSidecarHost;

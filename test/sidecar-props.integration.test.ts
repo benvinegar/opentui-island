@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createOpenTuiSidecarHost, hostFrameToAnsiLines } from "../src/index.js";
+import { createSidecarHost, hostFrameToAnsiLines } from "../src/index.js";
 
 describe("sidecar host props", () => {
   test("updates island props without resetting island state", async () => {
-    const host = await createOpenTuiSidecarHost({
+    const host = await createSidecarHost({
       size: {
         width: 32,
         height: 3,

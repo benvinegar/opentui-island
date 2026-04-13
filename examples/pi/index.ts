@@ -9,7 +9,7 @@ import {
   type ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 import {
-  createPiTuiOpenTuiSurface,
+  createPiTuiSurface,
   disablePiTuiMouseMode,
   enablePiTuiMouseMode,
 } from "../../dist/adapters/pi-tui/index.js";
@@ -233,7 +233,7 @@ class MouseIslandOverlay implements Component {
 
   private async initialize(): Promise<void> {
     try {
-      this.surface = (await createPiTuiOpenTuiSurface({
+      this.surface = (await createPiTuiSurface({
         height: this.height,
         initialWidth: this.width,
         requestRender: () => this.tui.requestRender(),
@@ -315,7 +315,7 @@ class OpenTuiIslandOverlay implements Component {
 
   private async initialize(): Promise<void> {
     try {
-      this.surface = (await createPiTuiOpenTuiSurface({
+      this.surface = (await createPiTuiSurface({
         height: this.config.height,
         initialWidth: Math.max(24, this.tui.terminal.columns - 4),
         requestRender: () => this.tui.requestRender(),

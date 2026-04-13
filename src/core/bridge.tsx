@@ -61,3 +61,19 @@ export function useOpenTuiIslandBridge() {
 
   return bridge;
 }
+
+export type BridgePayload = OpenTuiBridgePayload;
+export type BridgeEvent<
+  TType extends string = string,
+  TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+> = OpenTuiBridgeEvent<TType, TPayload>;
+export type BridgeEventOfType<
+  TType extends string,
+  TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
+> = OpenTuiBridgeEventOfType<TType, TPayload>;
+export type BridgeWaitOptions = OpenTuiBridgeWaitOptions;
+export type BridgeEventHandler = OpenTuiBridgeEventHandler;
+export type IslandBridge = OpenTuiIslandBridge;
+export const IslandBridgeProvider = OpenTuiIslandBridgeProvider;
+export const toBridgeEvent = toOpenTuiBridgeEvent;
+export const useIslandBridge = useOpenTuiIslandBridge;

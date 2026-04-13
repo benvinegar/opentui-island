@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
+import { createPiTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
   constructor(
@@ -32,7 +32,7 @@ describe("pi-tui ready state", () => {
     let readyCount = 0;
     let seenError: Error | null = null;
 
-    const surface = await createPiTuiOpenTuiSurface({
+    const surface = await createPiTuiSurface({
       height: 2,
       initialWidth: 24,
       requestRender: () => {

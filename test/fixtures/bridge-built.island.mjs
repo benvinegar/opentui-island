@@ -1,9 +1,9 @@
 import { createElement, useEffect, useState } from "react";
 import { useKeyboard } from "@opentui/react";
-import { useOpenTuiIslandBridge } from "../../dist/index.js";
+import { useIslandBridge } from "../../dist/index.js";
 
 export default function BridgeBuiltIsland() {
-  const bridge = useOpenTuiIslandBridge();
+  const bridge = useIslandBridge();
   const [text, setText] = useState("initial-text");
 
   useEffect(() => {

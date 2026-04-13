@@ -34,6 +34,8 @@ export interface CreatePiTuiOpenTuiSurfaceOptions
   host?: OpenTuiHost;
 }
 
+export type CreatePiTuiSurfaceOptions = CreatePiTuiOpenTuiSurfaceOptions;
+
 export interface CreatePiTuiOpenTuiModalOptions extends Omit<
   CreatePiTuiOpenTuiSurfaceOptions,
   "requestRender" | "initialWidth"
@@ -45,6 +47,8 @@ export interface CreatePiTuiOpenTuiModalOptions extends Omit<
   closeWaitOptions?: OpenTuiBridgeWaitOptions;
 }
 
+export type CreatePiTuiModalOptions = CreatePiTuiOpenTuiModalOptions;
+
 export interface PiTuiOpenTuiModal<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent> {
   surface: PiTuiOpenTuiSurface;
   result: Promise<TEvent>;
@@ -53,6 +57,9 @@ export interface PiTuiOpenTuiModal<TEvent extends OpenTuiBridgeEvent = OpenTuiBr
   sync(): Promise<void>;
   destroy(): Promise<void>;
 }
+
+export type PiTuiModal<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent> =
+  PiTuiOpenTuiModal<TEvent>;
 
 export interface PiTuiScreenBounds {
   row: number;
@@ -363,6 +370,8 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 }
 
+export type PiTuiSurface = PiTuiOpenTuiSurface;
+
 export function enablePiTuiMouseMode(terminal: Pick<Terminal, "write">) {
   terminal.write(ENABLE_SGR_MOUSE_MODE);
 }
@@ -489,6 +498,8 @@ export async function createPiTuiOpenTuiModal<
   };
 }
 
+export const createPiTuiModal = createPiTuiOpenTuiModal;
+
 /** Create a pi-tui component that renders a hosted OpenTUI island. */
 export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfaceOptions) {
   const initialWidth = Math.max(1, options.initialWidth ?? 1);
@@ -524,3 +535,5 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
     throw error;
   }
 }
+
+export const createPiTuiSurface = createPiTuiOpenTuiSurface;

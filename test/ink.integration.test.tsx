@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { render } from "ink-testing-library";
-import { InkOpenTuiSurface } from "../src/adapters/ink/index.js";
+import { InkSurface } from "../src/adapters/ink/index.js";
 
 function createMouseSequence(type: "down" | "up" | "scroll", x: number, y: number, button = 0) {
   const ansiX = x + 1;
@@ -31,7 +31,7 @@ async function waitForFrameContains(app: ReturnType<typeof render>, text: string
 describe("ink adapter", () => {
   test("forwards keyboard input into the hosted OpenTUI island", async () => {
     const app = render(
-      <InkOpenTuiSurface
+      <InkSurface
         island={{ module: new URL("./fixtures/counter.island.tsx", import.meta.url) }}
         height={2}
         width={24}
@@ -52,7 +52,7 @@ describe("ink adapter", () => {
   test("updates island props without resetting hosted state", async () => {
     const islandModule = new URL("./fixtures/updatable-counter.island.tsx", import.meta.url);
     const app = render(
-      <InkOpenTuiSurface
+      <InkSurface
         island={{ module: islandModule, props: { label: "alpha" } }}
         height={2}
         width={32}
@@ -70,7 +70,7 @@ describe("ink adapter", () => {
       );
 
       app.rerender(
-        createElement(InkOpenTuiSurface, {
+        createElement(InkSurface, {
           island: { module: islandModule, props: { label: "beta" } },
           height: 2,
           width: 32,
@@ -90,7 +90,7 @@ describe("ink adapter", () => {
     let seenError: Error | null = null;
 
     const readyApp = render(
-      <InkOpenTuiSurface
+      <InkSurface
         island={{ module: new URL("./fixtures/counter.island.tsx", import.meta.url) }}
         height={2}
         width={24}
@@ -113,7 +113,7 @@ describe("ink adapter", () => {
     }
 
     const errorApp = render(
-      <InkOpenTuiSurface
+      <InkSurface
         island={{
           module: new URL("./fixtures/counter.island.tsx", import.meta.url),
           exportName: "MissingExport",
@@ -137,7 +137,7 @@ describe("ink adapter", () => {
 
   test("forwards mouse click and scroll input into the hosted OpenTUI island", async () => {
     const app = render(
-      <InkOpenTuiSurface
+      <InkSurface
         island={{ module: new URL("./fixtures/mouse.island.tsx", import.meta.url) }}
         height={2}
         width={24}

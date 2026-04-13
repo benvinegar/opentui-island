@@ -107,3 +107,7 @@ export class OpenTuiReadyTracker {
     }
   }
 }
+
+export type IslandReadyState = OpenTuiReadyState;
+export type IslandReadySnapshot = OpenTuiReadySnapshot;
+export type IslandReadyCallbacks = OpenTuiReadyCallbacks;

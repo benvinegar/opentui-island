@@ -1,7 +1,4 @@
-import {
-  createPiTuiOpenTuiSurface,
-  type PiTuiOpenTuiSurface,
-} from "../../dist/adapters/pi-tui/index.js";
+import { createPiTuiSurface, type PiTuiSurface } from "../../dist/adapters/pi-tui/index.js";
 import {
   matchesKey,
   truncateToWidth,
@@ -10,7 +7,7 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 
-type Surface = PiTuiOpenTuiSurface;
+type Surface = PiTuiSurface;
 
 export type NoteEditorSaveEvent = {
   type: "save";
@@ -59,7 +56,7 @@ class ResultEditorOverlay implements Component {
 
   private async initialize(): Promise<void> {
     try {
-      this.surface = await createPiTuiOpenTuiSurface({
+      this.surface = await createPiTuiSurface({
         height: 9,
         initialWidth: Math.max(30, this.tui.terminal.columns - 4),
         requestRender: () => this.tui.requestRender(),

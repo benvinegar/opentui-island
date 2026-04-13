@@ -65,20 +65,20 @@ Create a controller and bind it to `pi-tui`:
 
 ```tsx
 import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
-import { createOpenTuiIslandController } from "opentui-island";
-import { createPiTuiOpenTuiSurface } from "opentui-island/pi-tui";
+import { createIslandController } from "opentui-island";
+import { createPiTuiSurface } from "opentui-island/pi-tui";
 
 const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
 
-const controller = await createOpenTuiIslandController({
+const controller = await createIslandController({
   size: { width: terminal.columns, height: 4 },
   island: {
     module: new URL("./counter.island.tsx", import.meta.url),
   },
 });
 
-const surface = await createPiTuiOpenTuiSurface({
+const surface = await createPiTuiSurface({
   controller,
   height: 4,
   initialWidth: terminal.columns,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
+import { createPiTuiSurface } from "../src/adapters/pi-tui/index.js";
 
 class NullTerminal implements Terminal {
   constructor(
@@ -29,7 +29,7 @@ describe("pi-tui surface props", () => {
   test("updates island props without replacing the mounted state", async () => {
     const terminal = new NullTerminal(32, 4);
     const tui = new TUI(terminal);
-    const surface = await createPiTuiOpenTuiSurface({
+    const surface = await createPiTuiSurface({
       height: 3,
       initialWidth: 32,
       requestRender: () => {

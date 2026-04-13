@@ -54,3 +54,9 @@ export function resolveOpenTuiIslandSource(
     props: source.props,
   };
 }
+
+export type IslandValue = OpenTuiIslandValue;
+export type IslandProps = OpenTuiIslandProps;
+export type IslandSource = OpenTuiIslandSource;
+export type ResolvedIslandSource = ResolvedOpenTuiIslandSource;
+export const resolveIslandSource = resolveOpenTuiIslandSource;

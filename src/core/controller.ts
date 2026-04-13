@@ -234,3 +234,7 @@ export async function createOpenTuiIslandController(options: CreateOpenTuiIsland
 
   return controller;
 }
+
+export type CreateIslandControllerOptions = CreateOpenTuiIslandControllerOptions;
+export type IslandController = OpenTuiIslandController;
+export const createIslandController = createOpenTuiIslandController;
