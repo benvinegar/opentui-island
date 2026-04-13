@@ -1,14 +1,14 @@
-export type OpenTuiReadyState = "loading" | "ready" | "error";
+export type IslandReadyState = "loading" | "ready" | "error";
 
-export interface OpenTuiReadySnapshot {
-  state: OpenTuiReadyState;
+export interface IslandReadySnapshot {
+  state: IslandReadyState;
   error: Error | null;
 }
 
-export interface OpenTuiReadyCallbacks {
+export interface IslandReadyCallbacks {
   onReady?: () => void;
   onError?: (error: Error) => void;
-  onReadyStateChange?: (snapshot: OpenTuiReadySnapshot) => void;
+  onReadyStateChange?: (snapshot: IslandReadySnapshot) => void;
 }
 
 function sameError(left: Error | null, right: Error | null) {
@@ -28,22 +28,22 @@ function createReadyPromise() {
 }
 
 /** Tracks one adapter's current loading state and exposes one waitable ready promise per cycle. */
-export class OpenTuiReadyTracker {
-  private callbacks: OpenTuiReadyCallbacks;
-  private state: OpenTuiReadyState = "loading";
+export class ReadyTracker {
+  private callbacks: IslandReadyCallbacks;
+  private state: IslandReadyState = "loading";
   private error: Error | null = null;
   private pending = createReadyPromise();
   private pendingSettled = false;
 
-  constructor(callbacks: OpenTuiReadyCallbacks = {}) {
+  constructor(callbacks: IslandReadyCallbacks = {}) {
     this.callbacks = callbacks;
   }
 
-  updateCallbacks(callbacks: OpenTuiReadyCallbacks) {
+  updateCallbacks(callbacks: IslandReadyCallbacks) {
     this.callbacks = callbacks;
   }
 
-  getSnapshot(): OpenTuiReadySnapshot {
+  getSnapshot(): IslandReadySnapshot {
     return {
       state: this.state,
       error: this.error,
@@ -86,7 +86,7 @@ export class OpenTuiReadyTracker {
     this.transitionTo({ state: "error", error });
   }
 
-  private transitionTo(next: OpenTuiReadySnapshot) {
+  private transitionTo(next: IslandReadySnapshot) {
     const stateChanged = this.state !== next.state;
     const errorChanged = !sameError(this.error, next.error);
     if (!stateChanged && !errorChanged) {
@@ -107,3 +107,9 @@ export class OpenTuiReadyTracker {
     }
   }
 }
+
+// Backward-compatible aliases for the pre-rename public API.
+export type OpenTuiReadyState = IslandReadyState;
+export type OpenTuiReadySnapshot = IslandReadySnapshot;
+export type OpenTuiReadyCallbacks = IslandReadyCallbacks;
+export const OpenTuiReadyTracker = ReadyTracker;

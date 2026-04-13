@@ -1,6 +1,6 @@
 import { render } from "ink-testing-library";
 import React from "react";
-import { InkOpenTuiSurface } from "../dist/adapters/ink/index.js";
+import { InkSurface } from "../dist/adapters/ink/index.js";
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -25,7 +25,7 @@ async function waitForFrameContains(app, text, timeoutMs = 500) {
 }
 
 const app = render(
-  React.createElement(InkOpenTuiSurface, {
+  React.createElement(InkSurface, {
     island: { module: new URL("./islands/counter.island.tsx", import.meta.url) },
     height: 2,
     width: 24,

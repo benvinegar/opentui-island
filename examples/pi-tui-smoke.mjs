@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { TUI } from "@mariozechner/pi-tui";
-import { createPiTuiOpenTuiSurface } from "../dist/adapters/pi-tui/index.js";
+import { createPiTuiSurface } from "../dist/adapters/pi-tui/index.js";
 
 class NullTerminal {
   constructor(columns, rows) {
@@ -29,7 +29,7 @@ const terminal = new NullTerminal(24, 4);
 const tui = new TUI(terminal);
 let renderRequests = 0;
 
-const surface = await createPiTuiOpenTuiSurface({
+const surface = await createPiTuiSurface({
   height: 4,
   initialWidth: 24,
   requestRender: () => {

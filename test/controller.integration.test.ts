@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { TUI, type Terminal } from "@mariozechner/pi-tui";
-import { createPiTuiOpenTuiSurface } from "../src/adapters/pi-tui/index.js";
-import { createOpenTuiIslandController, hostFrameToAnsiLines } from "../src/index.js";
+import { createPiTuiSurface } from "../src/adapters/pi-tui/index.js";
+import { createIslandController, hostFrameToAnsiLines } from "../src/index.js";
 
 class NullTerminal implements Terminal {
   constructor(
@@ -26,9 +26,9 @@ class NullTerminal implements Terminal {
   setTitle(_title: string) {}
 }
 
-describe("OpenTuiIslandController", () => {
+describe("IslandController", () => {
   test("owns mount, props, events, and frame sync directly", async () => {
-    const controller = await createOpenTuiIslandController({
+    const controller = await createIslandController({
       island: {
         module: new URL("./fixtures/updatable-counter.island.tsx", import.meta.url),
         props: { label: "alpha" },
@@ -57,11 +57,11 @@ describe("OpenTuiIslandController", () => {
   test("can be bound through the pi-tui surface wrapper", async () => {
     const terminal = new NullTerminal(32, 4);
     const tui = new TUI(terminal);
-    const controller = await createOpenTuiIslandController({
+    const controller = await createIslandController({
       size: { width: 32, height: 3 },
     });
 
-    const surface = await createPiTuiOpenTuiSurface({
+    const surface = await createPiTuiSurface({
       controller,
       height: 3,
       initialWidth: 32,

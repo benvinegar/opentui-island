@@ -1,29 +1,24 @@
-import type {
-  OpenTuiBridgeEvent,
-  OpenTuiBridgeEventOfType,
-  OpenTuiBridgePayload,
-  OpenTuiBridgeWaitOptions,
-} from "./bridge.js";
-import type { OpenTuiIslandProps, OpenTuiIslandSource } from "./island.js";
+import type { BridgeEvent, BridgeEventOfType, BridgePayload, BridgeWaitOptions } from "./bridge.js";
+import type { IslandProps, IslandSource } from "./island.js";
 import type { HostFrame, HostKeyInput, HostMouseInput, HostSize } from "./types.js";
 
 /** Common contract for any runtime bridge that can host an OpenTUI island. */
-export interface OpenTuiHost {
-  mount(island: OpenTuiIslandSource): Promise<void>;
-  updateProps(props?: OpenTuiIslandProps): Promise<void>;
-  onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
-  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+export interface IslandHost {
+  mount(island: IslandSource): Promise<void>;
+  updateProps(props?: IslandProps): Promise<void>;
+  onEvent(handler: (event: BridgeEvent) => void): () => void;
+  onEvent<TType extends string, TPayload extends BridgePayload = BridgePayload>(
     type: TType,
-    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+    handler: (event: BridgeEventOfType<TType, TPayload>) => void,
   ): () => void;
-  sendCommand(event: OpenTuiBridgeEvent): Promise<void>;
-  waitForEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+  sendCommand(event: BridgeEvent): Promise<void>;
+  waitForEvent<TType extends string, TPayload extends BridgePayload = BridgePayload>(
     type: TType,
-    options?: OpenTuiBridgeWaitOptions,
-  ): Promise<OpenTuiBridgeEventOfType<TType, TPayload>>;
-  waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
-    match: (event: OpenTuiBridgeEvent) => event is TEvent,
-    options?: OpenTuiBridgeWaitOptions,
+    options?: BridgeWaitOptions,
+  ): Promise<BridgeEventOfType<TType, TPayload>>;
+  waitForEvent<TEvent extends BridgeEvent = BridgeEvent>(
+    match: (event: BridgeEvent) => event is TEvent,
+    options?: BridgeWaitOptions,
   ): Promise<TEvent>;
   resize(size: HostSize): Promise<void>;
   focus(): Promise<void>;
@@ -35,11 +30,16 @@ export interface OpenTuiHost {
 }
 
 /** Factory signature for creating one host instance for a specific runtime adapter. */
-export type OpenTuiHostFactory = (options: CreateOpenTuiHostOptions) => Promise<OpenTuiHost>;
+export type IslandHostFactory = (options: CreateIslandHostOptions) => Promise<IslandHost>;
 
 /** Shared options for creating one OpenTUI host bridge. */
-export interface CreateOpenTuiHostOptions {
+export interface CreateIslandHostOptions {
   size: HostSize;
   kittyKeyboard?: boolean;
   otherModifiersMode?: boolean;
 }
+
+// Backward-compatible aliases for the pre-rename public API.
+export type OpenTuiHost = IslandHost;
+export type OpenTuiHostFactory = IslandHostFactory;
+export type CreateOpenTuiHostOptions = CreateIslandHostOptions;

@@ -7,16 +7,16 @@ import {
 } from "@mariozechner/pi-tui";
 import { hostFrameToAnsiLines, hostLineToAnsi } from "../../core/ansi.js";
 import type {
-  OpenTuiBridgeEvent,
-  OpenTuiBridgeEventOfType,
-  OpenTuiBridgePayload,
-  OpenTuiBridgeWaitOptions,
+  BridgeEvent,
+  BridgeEventOfType,
+  BridgePayload,
+  BridgeWaitOptions,
 } from "../../core/bridge.js";
-import { createOpenTuiIslandController, OpenTuiIslandController } from "../../core/controller.js";
+import { createIslandController, IslandController } from "../../core/controller.js";
 import { diffHostFrames } from "../../core/frame-diff.js";
-import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import type { OpenTuiIslandProps, OpenTuiIslandSource } from "../../core/island.js";
-import type { OpenTuiReadyCallbacks } from "../../core/ready.js";
+import type { CreateIslandHostOptions, IslandHost } from "../../core/host.js";
+import type { IslandProps, IslandSource } from "../../core/island.js";
+import type { IslandReadyCallbacks } from "../../core/ready.js";
 import {
   DISABLE_SGR_MOUSE_MODE,
   ENABLE_SGR_MOUSE_MODE,
@@ -24,35 +24,44 @@ import {
 } from "../../core/terminal-mouse.js";
 import type { HostFrame, HostMouseInput } from "../../core/types.js";
 
-export interface CreatePiTuiOpenTuiSurfaceOptions
-  extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
+export interface CreatePiTuiSurfaceOptions
+  extends Omit<CreateIslandHostOptions, "size">, IslandReadyCallbacks {
   height: number;
-  island: OpenTuiIslandSource;
+  island: IslandSource;
   requestRender?: () => void;
   initialWidth?: number;
-  controller?: OpenTuiIslandController;
-  host?: OpenTuiHost;
+  controller?: IslandController;
+  host?: IslandHost;
 }
 
-export interface CreatePiTuiOpenTuiModalOptions extends Omit<
-  CreatePiTuiOpenTuiSurfaceOptions,
+// Backward-compatible type alias for the pre-rename public API.
+export type CreatePiTuiOpenTuiSurfaceOptions = CreatePiTuiSurfaceOptions;
+
+export interface CreatePiTuiModalOptions extends Omit<
+  CreatePiTuiSurfaceOptions,
   "requestRender" | "initialWidth"
 > {
   tui: Pick<TUI, "addInputListener" | "requestRender" | "setFocus" | "terminal">;
   closeOn: readonly string[];
   enableMouse?: boolean;
   focusOnOpen?: boolean;
-  closeWaitOptions?: OpenTuiBridgeWaitOptions;
+  closeWaitOptions?: BridgeWaitOptions;
 }
 
-export interface PiTuiOpenTuiModal<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent> {
-  surface: PiTuiOpenTuiSurface;
+// Backward-compatible type alias for the pre-rename public API.
+export type CreatePiTuiOpenTuiModalOptions = CreatePiTuiModalOptions;
+
+export interface PiTuiModal<TEvent extends BridgeEvent = BridgeEvent> {
+  surface: PiTuiSurface;
   result: Promise<TEvent>;
   focus(): void;
   waitForResult(): Promise<TEvent>;
   sync(): Promise<void>;
   destroy(): Promise<void>;
 }
+
+// Backward-compatible type alias for the pre-rename public API.
+export type PiTuiOpenTuiModal<TEvent extends BridgeEvent = BridgeEvent> = PiTuiModal<TEvent>;
 
 export interface PiTuiScreenBounds {
   row: number;
@@ -113,10 +122,10 @@ function normalizeLines(lines: string[], width: number, height: number) {
 }
 
 /** A fixed-height pi-tui component that hosts one OpenTUI island. */
-export class PiTuiOpenTuiSurface implements Component, Focusable {
+export class PiTuiSurface implements Component, Focusable {
   wantsKeyRelease = true;
 
-  private readonly controller: OpenTuiIslandController;
+  private readonly controller: IslandController;
   private readonly height: number;
   private readonly requestRender: () => void;
   private lastWidth: number;
@@ -128,7 +137,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   private screenBounds: PiTuiScreenBounds | null = null;
 
   constructor(params: {
-    controller: OpenTuiIslandController;
+    controller: IslandController;
     height: number;
     initialWidth: number;
     requestRender?: () => void;
@@ -227,27 +236,27 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 
   /** Replace the hosted island and refresh the cached pi-tui output. */
-  async setIsland(island: OpenTuiIslandSource) {
+  async setIsland(island: IslandSource) {
     await this.controller.setIsland(island);
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }
 
   /** Update the mounted island props without swapping to a different module export. */
-  async updateProps(props?: OpenTuiIslandProps) {
+  async updateProps(props?: IslandProps) {
     await this.controller.updateProps(props);
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }
 
-  onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
-  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+  onEvent(handler: (event: BridgeEvent) => void): () => void;
+  onEvent<TType extends string, TPayload extends BridgePayload = BridgePayload>(
     type: TType,
-    handler: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+    handler: (event: BridgeEventOfType<TType, TPayload>) => void,
   ): () => void;
-  onEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
-    typeOrHandler: TType | ((event: OpenTuiBridgeEvent) => void),
-    maybeHandler?: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
+  onEvent<TType extends string, TPayload extends BridgePayload = BridgePayload>(
+    typeOrHandler: TType | ((event: BridgeEvent) => void),
+    maybeHandler?: (event: BridgeEventOfType<TType, TPayload>) => void,
   ) {
     if (typeof typeOrHandler === "string") {
       return this.controller.onEvent(typeOrHandler, maybeHandler ?? (() => {}));
@@ -256,26 +265,26 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     return this.controller.onEvent(typeOrHandler);
   }
 
-  async sendCommand(event: OpenTuiBridgeEvent) {
+  async sendCommand(event: BridgeEvent) {
     await this.controller.sendCommand(event);
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }
 
-  waitForEvent<TType extends string, TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload>(
+  waitForEvent<TType extends string, TPayload extends BridgePayload = BridgePayload>(
     type: TType,
-    options?: OpenTuiBridgeWaitOptions,
-  ): Promise<OpenTuiBridgeEventOfType<TType, TPayload>>;
-  waitForEvent<TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
-    match: (event: OpenTuiBridgeEvent) => event is TEvent,
-    options?: OpenTuiBridgeWaitOptions,
+    options?: BridgeWaitOptions,
+  ): Promise<BridgeEventOfType<TType, TPayload>>;
+  waitForEvent<TEvent extends BridgeEvent = BridgeEvent>(
+    match: (event: BridgeEvent) => event is TEvent,
+    options?: BridgeWaitOptions,
   ): Promise<TEvent>;
-  waitForEvent<TType extends string, TEvent extends OpenTuiBridgeEvent = OpenTuiBridgeEvent>(
-    typeOrMatch: TType | ((event: OpenTuiBridgeEvent) => event is TEvent),
-    options?: OpenTuiBridgeWaitOptions,
+  waitForEvent<TType extends string, TEvent extends BridgeEvent = BridgeEvent>(
+    typeOrMatch: TType | ((event: BridgeEvent) => event is TEvent),
+    options?: BridgeWaitOptions,
   ) {
     return this.controller.waitForEvent(
-      typeOrMatch as TType & ((event: OpenTuiBridgeEvent) => event is TEvent),
+      typeOrMatch as TType & ((event: BridgeEvent) => event is TEvent),
       options,
     );
   }
@@ -363,6 +372,9 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 }
 
+// Backward-compatible type alias for the pre-rename public API.
+export type PiTuiOpenTuiSurface = PiTuiSurface;
+
 export function enablePiTuiMouseMode(terminal: Pick<Terminal, "write">) {
   terminal.write(ENABLE_SGR_MOUSE_MODE);
 }
@@ -373,7 +385,7 @@ export function disablePiTuiMouseMode(terminal: Pick<Terminal, "write">) {
 
 export function attachPiTuiMouseSupport(
   tui: Pick<TUI, "addInputListener" | "setFocus" | "terminal">,
-  surface: PiTuiOpenTuiSurface,
+  surface: PiTuiSurface,
 ) {
   enablePiTuiMouseMode(tui.terminal);
   const detach = tui.addInputListener((data) =>
@@ -394,13 +406,11 @@ export function attachPiTuiMouseSupport(
  * Create a modal-style pi-tui helper that owns surface focus, optional mouse support,
  * close-on-event waiting, and teardown around one hosted island.
  */
-export async function createPiTuiOpenTuiModal<
+export async function createPiTuiModal<
   TType extends string,
-  TPayload extends OpenTuiBridgePayload = OpenTuiBridgePayload,
->(
-  options: CreatePiTuiOpenTuiModalOptions,
-): Promise<PiTuiOpenTuiModal<OpenTuiBridgeEvent<TType, TPayload>>> {
-  const surface = await createPiTuiOpenTuiSurface({
+  TPayload extends BridgePayload = BridgePayload,
+>(options: CreatePiTuiModalOptions): Promise<PiTuiModal<BridgeEvent<TType, TPayload>>> {
+  const surface = await createPiTuiSurface({
     ...options,
     requestRender: () => options.tui.requestRender(),
     initialWidth: Math.max(1, options.tui.terminal.columns),
@@ -419,11 +429,11 @@ export async function createPiTuiOpenTuiModal<
     options.enableMouse === false ? () => {} : attachPiTuiMouseSupport(options.tui, surface);
   let destroyed = false;
   let settled = false;
-  let resolveResult!: (event: OpenTuiBridgeEvent<TType, TPayload>) => void;
+  let resolveResult!: (event: BridgeEvent<TType, TPayload>) => void;
   let rejectResult!: (error: Error) => void;
   const closeTimeoutMs = options.closeWaitOptions?.timeoutMs ?? 0;
   const closeOn = new Set(options.closeOn);
-  const result = new Promise<OpenTuiBridgeEvent<TType, TPayload>>((resolve, reject) => {
+  const result = new Promise<BridgeEvent<TType, TPayload>>((resolve, reject) => {
     resolveResult = resolve;
     rejectResult = reject;
   });
@@ -449,7 +459,7 @@ export async function createPiTuiOpenTuiModal<
     if (closeTimeout) {
       clearTimeout(closeTimeout);
     }
-    resolveResult(event as OpenTuiBridgeEvent<TType, TPayload>);
+    resolveResult(event as BridgeEvent<TType, TPayload>);
   });
 
   const destroy = async () => {
@@ -489,12 +499,15 @@ export async function createPiTuiOpenTuiModal<
   };
 }
 
+// Backward-compatible alias for the pre-rename public API.
+export const createPiTuiOpenTuiModal = createPiTuiModal;
+
 /** Create a pi-tui component that renders a hosted OpenTUI island. */
-export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfaceOptions) {
+export async function createPiTuiSurface(options: CreatePiTuiSurfaceOptions) {
   const initialWidth = Math.max(1, options.initialWidth ?? 1);
   const controller =
     options.controller ??
-    (await createOpenTuiIslandController({
+    (await createIslandController({
       host: options.host,
       island: options.island,
       size: {
@@ -508,7 +521,7 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
       onReadyStateChange: options.onReadyStateChange,
     }));
 
-  const surface = new PiTuiOpenTuiSurface({
+  const surface = new PiTuiSurface({
     controller,
     height: options.height,
     initialWidth,
@@ -524,3 +537,6 @@ export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfa
     throw error;
   }
 }
+
+// Backward-compatible alias for the pre-rename public API.
+export const createPiTuiOpenTuiSurface = createPiTuiSurface;

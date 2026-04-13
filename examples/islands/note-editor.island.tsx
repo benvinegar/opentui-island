@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/react */
 
 import { useKeyboard } from "@opentui/react";
-import { useOpenTuiIslandBridge } from "../../src/index.js";
+import { useIslandBridge } from "../../src/index.js";
 import { useState } from "react";
 
 const FALLBACK_TEXT = "Draw a terminal postcard.";
@@ -27,7 +27,7 @@ function getInsertedText(keyName: string) {
 }
 
 export default function NoteEditorIsland({ initialText = FALLBACK_TEXT }: NoteEditorIslandProps) {
-  const bridge = useOpenTuiIslandBridge();
+  const bridge = useIslandBridge();
   const [text, setText] = useState(initialText);
 
   useKeyboard(

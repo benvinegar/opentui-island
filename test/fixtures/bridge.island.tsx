@@ -2,10 +2,10 @@
 
 import { useKeyboard } from "@opentui/react";
 import { useEffect, useState } from "react";
-import { useOpenTuiIslandBridge } from "../../src/index.js";
+import { useIslandBridge } from "../../src/index.js";
 
 export default function BridgeIsland() {
-  const bridge = useOpenTuiIslandBridge();
+  const bridge = useIslandBridge();
   const [text, setText] = useState("initial-text");
 
   useEffect(() => {

@@ -4,41 +4,41 @@ import { Box, Text, useBoxMetrics, useInput, useStdin, useStdout, useWindowSize 
 import type { Key } from "ink";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { hostFrameToAnsiLines } from "../../core/ansi.js";
-import type { OpenTuiBridgeEvent } from "../../core/bridge.js";
-import type { OpenTuiIslandController } from "../../core/controller.js";
-import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
+import type { BridgeEvent } from "../../core/bridge.js";
+import type { IslandController } from "../../core/controller.js";
+import type { CreateIslandHostOptions, IslandHost } from "../../core/host.js";
 import {
-  resolveOpenTuiIslandSource,
-  type OpenTuiIslandSource,
-  type ResolvedOpenTuiIslandSource,
+  resolveIslandSource,
+  type IslandSource,
+  type ResolvedIslandSource,
 } from "../../core/island.js";
-import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
+import { ReadyTracker, type IslandReadyCallbacks } from "../../core/ready.js";
 import {
   DISABLE_SGR_MOUSE_MODE,
   ENABLE_SGR_MOUSE_MODE,
   parseSgrMouseStream,
 } from "../../core/terminal-mouse.js";
-import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
+import { createSidecarHost } from "../../sidecar/client.js";
 import type { HostMouseInput } from "../../core/types.js";
 import type { DOMElement } from "ink";
 
-function samePropsJson(
-  left: ResolvedOpenTuiIslandSource["props"],
-  right: ResolvedOpenTuiIslandSource["props"],
-) {
+function samePropsJson(left: ResolvedIslandSource["props"], right: ResolvedIslandSource["props"]) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
-export interface InkOpenTuiSurfaceProps
-  extends Omit<CreateOpenTuiHostOptions, "size">, OpenTuiReadyCallbacks {
-  island: OpenTuiIslandSource;
+export interface InkSurfaceProps
+  extends Omit<CreateIslandHostOptions, "size">, IslandReadyCallbacks {
+  island: IslandSource;
   width?: number;
   height: number;
   isActive?: boolean;
   fallback?: string;
-  onEvent?: (event: OpenTuiBridgeEvent) => void;
-  controller?: OpenTuiIslandController;
+  onEvent?: (event: BridgeEvent) => void;
+  controller?: IslandController;
 }
+
+// Backward-compatible type alias for the pre-rename public API.
+export type InkOpenTuiSurfaceProps = InkSurfaceProps;
 
 function normalizeLines(lines: string[], width: number, height: number) {
   const normalizedWidth = Math.max(1, width);
@@ -69,8 +69,8 @@ function inputToSequence(input: string, key: Key) {
 }
 
 function hasSameIslandTarget(
-  currentIsland: ResolvedOpenTuiIslandSource | null,
-  nextIsland: ResolvedOpenTuiIslandSource,
+  currentIsland: ResolvedIslandSource | null,
+  nextIsland: ResolvedIslandSource,
 ) {
   return (
     currentIsland?.module === nextIsland.module &&
@@ -123,7 +123,7 @@ function getAbsoluteBounds(ref: RefObject<DOMElement | null>, width: number, hei
 }
 
 /** Render an offscreen OpenTUI island inside an Ink layout region. */
-export function InkOpenTuiSurface({
+export function InkSurface({
   island,
   width,
   height,
@@ -136,16 +136,16 @@ export function InkOpenTuiSurface({
   kittyKeyboard,
   otherModifiersMode,
   controller,
-}: InkOpenTuiSurfaceProps) {
+}: InkSurfaceProps) {
   const windowSize = useWindowSize();
   const { stdin, isRawModeSupported } = useStdin();
   const { stdout } = useStdout();
   const resolvedWidth = Math.max(1, width ?? windowSize.columns);
   const inputActive = isActive && isRawModeSupported;
-  const hostRef = useRef<OpenTuiHost | null>(null);
-  const controllerRef = useRef<OpenTuiIslandController | null>(controller ?? null);
-  const mountedIslandRef = useRef<ResolvedOpenTuiIslandSource | null>(null);
-  const readyTrackerRef = useRef(new OpenTuiReadyTracker());
+  const hostRef = useRef<IslandHost | null>(null);
+  const controllerRef = useRef<IslandController | null>(controller ?? null);
+  const mountedIslandRef = useRef<ResolvedIslandSource | null>(null);
+  const readyTrackerRef = useRef(new ReadyTracker());
   const eventUnsubscribeRef = useRef<(() => void) | null>(null);
   const containerRef = useRef<DOMElement>(null!);
   const mouseBufferRef = useRef("");
@@ -185,7 +185,7 @@ export function InkOpenTuiSurface({
 
   useEffect(() => {
     let cancelled = false;
-    const resolvedIsland = resolveOpenTuiIslandSource(island);
+    const resolvedIsland = resolveIslandSource(island);
 
     const ensureHost = async () => {
       const previousIsland = mountedIslandRef.current;
@@ -200,7 +200,7 @@ export function InkOpenTuiSurface({
 
       if (!controllerRef.current && !hostRef.current) {
         // Ink still supports self-managed hosting, but an injected controller lets callers share one lifecycle object across adapters.
-        hostRef.current = await createOpenTuiSidecarHost({
+        hostRef.current = await createSidecarHost({
           size: { width: resolvedWidth, height },
           kittyKeyboard,
           otherModifiersMode,
@@ -395,3 +395,6 @@ export function InkOpenTuiSurface({
     </Box>
   );
 }
+
+// Backward-compatible alias for the pre-rename public API.
+export const InkOpenTuiSurface = InkSurface;

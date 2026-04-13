@@ -1,31 +1,31 @@
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export type OpenTuiIslandValue =
+export type IslandValue =
   | null
   | boolean
   | number
   | string
-  | OpenTuiIslandValue[]
-  | { [key: string]: OpenTuiIslandValue };
+  | IslandValue[]
+  | { [key: string]: IslandValue };
 
 /** Serializable props passed into a sidecar-loaded island component. */
-export interface OpenTuiIslandProps {
-  [key: string]: OpenTuiIslandValue;
+export interface IslandProps {
+  [key: string]: IslandValue;
 }
 
 /** Public description of one OpenTUI island module that Bun can import. */
-export interface OpenTuiIslandSource {
+export interface IslandSource {
   module: string | URL;
   exportName?: string;
-  props?: OpenTuiIslandProps;
+  props?: IslandProps;
 }
 
 /** Fully resolved island descriptor sent over the sidecar protocol. */
-export interface ResolvedOpenTuiIslandSource {
+export interface ResolvedIslandSource {
   module: string;
   exportName: string;
-  props?: OpenTuiIslandProps;
+  props?: IslandProps;
 }
 
 function resolveIslandModule(module: string | URL) {
@@ -45,12 +45,17 @@ function resolveIslandModule(module: string | URL) {
 }
 
 /** Normalize path-like island descriptors before sending them to the sidecar. */
-export function resolveOpenTuiIslandSource(
-  source: OpenTuiIslandSource,
-): ResolvedOpenTuiIslandSource {
+export function resolveIslandSource(source: IslandSource): ResolvedIslandSource {
   return {
     module: resolveIslandModule(source.module),
     exportName: source.exportName ?? "default",
     props: source.props,
   };
 }
+
+// Backward-compatible aliases for the pre-rename public API.
+export type OpenTuiIslandValue = IslandValue;
+export type OpenTuiIslandProps = IslandProps;
+export type OpenTuiIslandSource = IslandSource;
+export type ResolvedOpenTuiIslandSource = ResolvedIslandSource;
+export const resolveOpenTuiIslandSource = resolveIslandSource;
