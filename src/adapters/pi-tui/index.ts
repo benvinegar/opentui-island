@@ -12,21 +12,16 @@ import type {
   OpenTuiBridgePayload,
   OpenTuiBridgeWaitOptions,
 } from "../../core/bridge.js";
+import { createOpenTuiIslandController, OpenTuiIslandController } from "../../core/controller.js";
 import { diffHostFrames } from "../../core/frame-diff.js";
 import type { CreateOpenTuiHostOptions, OpenTuiHost } from "../../core/host.js";
-import {
-  resolveOpenTuiIslandSource,
-  type OpenTuiIslandProps,
-  type OpenTuiIslandSource,
-  type ResolvedOpenTuiIslandSource,
-} from "../../core/island.js";
-import { OpenTuiReadyTracker, type OpenTuiReadyCallbacks } from "../../core/ready.js";
+import type { OpenTuiIslandProps, OpenTuiIslandSource } from "../../core/island.js";
+import type { OpenTuiReadyCallbacks } from "../../core/ready.js";
 import {
   DISABLE_SGR_MOUSE_MODE,
   ENABLE_SGR_MOUSE_MODE,
   parseSgrMouseInput,
 } from "../../core/terminal-mouse.js";
-import { createOpenTuiSidecarHost } from "../../sidecar/client.js";
 import type { HostFrame, HostMouseInput } from "../../core/types.js";
 
 export interface CreatePiTuiOpenTuiSurfaceOptions
@@ -35,6 +30,7 @@ export interface CreatePiTuiOpenTuiSurfaceOptions
   island: OpenTuiIslandSource;
   requestRender?: () => void;
   initialWidth?: number;
+  controller?: OpenTuiIslandController;
   host?: OpenTuiHost;
 }
 
@@ -116,21 +112,11 @@ function normalizeLines(lines: string[], width: number, height: number) {
   return visible;
 }
 
-function hasSameIslandTarget(
-  currentIsland: ResolvedOpenTuiIslandSource | null,
-  nextIsland: ResolvedOpenTuiIslandSource,
-) {
-  return (
-    currentIsland?.module === nextIsland.module &&
-    currentIsland.exportName === nextIsland.exportName
-  );
-}
-
 /** A fixed-height pi-tui component that hosts one OpenTUI island. */
 export class PiTuiOpenTuiSurface implements Component, Focusable {
   wantsKeyRelease = true;
 
-  private readonly host: OpenTuiHost;
+  private readonly controller: OpenTuiIslandController;
   private readonly height: number;
   private readonly requestRender: () => void;
   private lastWidth: number;
@@ -139,24 +125,20 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   private syncPromise: Promise<void> | null = null;
   private pendingWidth: number | null = null;
   private _focused = false;
-  private currentIsland: ResolvedOpenTuiIslandSource | null = null;
-  private readonly readyTracker: OpenTuiReadyTracker;
   private screenBounds: PiTuiScreenBounds | null = null;
 
   constructor(params: {
-    host: OpenTuiHost;
+    controller: OpenTuiIslandController;
     height: number;
     initialWidth: number;
     requestRender?: () => void;
-    readyCallbacks?: OpenTuiReadyCallbacks;
   }) {
-    this.host = params.host;
+    this.controller = params.controller;
     this.height = params.height;
     this.lastWidth = Math.max(1, params.initialWidth);
     this.cachedLines = blankLines(this.lastWidth, this.height);
     this.requestRender = params.requestRender ?? (() => {});
-    this.readyTracker = new OpenTuiReadyTracker(params.readyCallbacks);
-    this.runInBackground(this.host.blur());
+    this.runInBackground(this.controller.blur());
   }
 
   setScreenBounds(bounds: PiTuiScreenBounds | null) {
@@ -172,43 +154,33 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 
   get ready() {
-    return this.readyTracker.isReady();
+    return this.controller.ready;
   }
 
   get readyState() {
-    return this.readyTracker.getSnapshot().state;
+    return this.controller.readyState;
   }
 
   get readyError() {
-    return this.readyTracker.getSnapshot().error;
+    return this.controller.readyError;
   }
 
   set focused(value: boolean) {
     this._focused = value;
     if (value) {
-      this.runInBackground(this.host.focus());
+      this.runInBackground(this.controller.focus());
     } else {
-      this.runInBackground(this.host.blur());
+      this.runInBackground(this.controller.blur());
     }
   }
 
   /** Resolve once the current load cycle has produced a ready frame. */
   async waitUntilReady() {
-    if (this.ready) {
-      return;
-    }
-
-    await this.readyTracker.waitUntilReady();
-  }
-
-  private toReadyError(error: unknown) {
-    return error instanceof Error ? error : new Error(String(error));
+    await this.controller.waitUntilReady();
   }
 
   private runInBackground(operation: Promise<unknown>) {
-    void operation.catch((error) => {
-      this.readyTracker.markError(this.toReadyError(error));
-    });
+    void operation.catch(() => {});
   }
 
   private applyFrame(frame: HostFrame, width: number) {
@@ -234,8 +206,8 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       const width = this.pendingWidth;
       this.pendingWidth = null;
       this.lastWidth = width;
-      await this.host.resize({ width, height: this.height });
-      const frame = await this.host.renderFrame();
+      // pi-tui can ask for several widths while one render is still in flight. Collapse that burst down to the latest width.
+      const frame = await this.controller.syncFrame({ width, height: this.height });
       this.applyFrame(frame, width);
     }
   }
@@ -251,56 +223,21 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       });
     }
 
-    try {
-      await this.syncPromise;
-      if (this.readyState === "loading") {
-        this.readyTracker.markReady();
-      }
-    } catch (error) {
-      this.readyTracker.markError(this.toReadyError(error));
-      throw error;
-    }
+    await this.syncPromise;
   }
 
   /** Replace the hosted island and refresh the cached pi-tui output. */
   async setIsland(island: OpenTuiIslandSource) {
-    const resolvedIsland = resolveOpenTuiIslandSource(island);
-    this.readyTracker.startLoading();
-    try {
-      if (hasSameIslandTarget(this.currentIsland, resolvedIsland)) {
-        await this.updateProps(resolvedIsland.props);
-        return;
-      }
-
-      await this.host.mount(resolvedIsland);
-      this.currentIsland = resolvedIsland;
-      this.cachedFrame = undefined;
-      await this.sync(this.lastWidth);
-    } catch (error) {
-      this.readyTracker.markError(this.toReadyError(error));
-      throw error;
-    }
+    await this.controller.setIsland(island);
+    this.cachedFrame = undefined;
+    await this.sync(this.lastWidth);
   }
 
   /** Update the mounted island props without swapping to a different module export. */
   async updateProps(props?: OpenTuiIslandProps) {
-    if (!this.currentIsland) {
-      throw new Error("OpenTUI island has not been mounted yet.");
-    }
-
-    this.readyTracker.startLoading();
-    try {
-      await this.host.updateProps(props);
-      this.currentIsland = {
-        ...this.currentIsland,
-        props,
-      };
-      this.cachedFrame = undefined;
-      await this.sync(this.lastWidth);
-    } catch (error) {
-      this.readyTracker.markError(this.toReadyError(error));
-      throw error;
-    }
+    await this.controller.updateProps(props);
+    this.cachedFrame = undefined;
+    await this.sync(this.lastWidth);
   }
 
   onEvent(handler: (event: OpenTuiBridgeEvent) => void): () => void;
@@ -312,32 +249,15 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     typeOrHandler: TType | ((event: OpenTuiBridgeEvent) => void),
     maybeHandler?: (event: OpenTuiBridgeEventOfType<TType, TPayload>) => void,
   ) {
-    const handler =
-      typeof typeOrHandler === "string"
-        ? (event: OpenTuiBridgeEvent) => {
-            if (event.type !== typeOrHandler) {
-              return;
-            }
+    if (typeof typeOrHandler === "string") {
+      return this.controller.onEvent(typeOrHandler, maybeHandler ?? (() => {}));
+    }
 
-            maybeHandler?.(event as OpenTuiBridgeEventOfType<TType, TPayload>);
-          }
-        : typeOrHandler;
-
-    return this.host.onEvent((event) => {
-      if (!this.currentIsland) {
-        return;
-      }
-
-      handler(event);
-    });
+    return this.controller.onEvent(typeOrHandler);
   }
 
   async sendCommand(event: OpenTuiBridgeEvent) {
-    if (!this.currentIsland) {
-      throw new Error("OpenTUI island has not been mounted yet.");
-    }
-
-    await this.host.sendCommand(event);
+    await this.controller.sendCommand(event);
     this.cachedFrame = undefined;
     await this.sync(this.lastWidth);
   }
@@ -354,11 +274,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     typeOrMatch: TType | ((event: OpenTuiBridgeEvent) => event is TEvent),
     options?: OpenTuiBridgeWaitOptions,
   ) {
-    if (!this.currentIsland) {
-      throw new Error("OpenTUI island has not been mounted yet.");
-    }
-
-    return this.host.waitForEvent(
+    return this.controller.waitForEvent(
       typeOrMatch as TType & ((event: OpenTuiBridgeEvent) => event is TEvent),
       options,
     );
@@ -370,7 +286,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       return;
     }
 
-    await this.host.sendKey({ sequence: data });
+    await this.controller.sendKey({ sequence: data });
     await this.sync(this.lastWidth);
   }
 
@@ -380,7 +296,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
       return;
     }
 
-    await this.host.sendMouse(input);
+    await this.controller.sendMouse(input);
     await this.sync(this.lastWidth);
   }
 
@@ -409,6 +325,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
     }
 
     void this.dispatchMouseEvent(event, options?.focus);
+    // Consume only mouse input that lands inside the surface bounds so outer pi-tui widgets can still see everything else.
     if (this.getScreenBounds() && eventInsideBounds(event, this.getScreenBounds()!)) {
       return { consume: true };
     }
@@ -442,7 +359,7 @@ export class PiTuiOpenTuiSurface implements Component, Focusable {
   }
 
   async destroy() {
-    await this.host.destroy();
+    await this.controller.destroy();
   }
 }
 
@@ -575,30 +492,32 @@ export async function createPiTuiOpenTuiModal<
 /** Create a pi-tui component that renders a hosted OpenTUI island. */
 export async function createPiTuiOpenTuiSurface(options: CreatePiTuiOpenTuiSurfaceOptions) {
   const initialWidth = Math.max(1, options.initialWidth ?? 1);
-  const host =
-    options.host ??
-    (await createOpenTuiSidecarHost({
+  const controller =
+    options.controller ??
+    (await createOpenTuiIslandController({
+      host: options.host,
+      island: options.island,
       size: {
         width: initialWidth,
         height: options.height,
       },
       kittyKeyboard: options.kittyKeyboard,
       otherModifiersMode: options.otherModifiersMode,
-    }));
-
-  const surface = new PiTuiOpenTuiSurface({
-    host,
-    height: options.height,
-    initialWidth,
-    requestRender: options.requestRender,
-    readyCallbacks: {
       onReady: options.onReady,
       onError: options.onError,
       onReadyStateChange: options.onReadyStateChange,
-    },
+    }));
+
+  const surface = new PiTuiOpenTuiSurface({
+    controller,
+    height: options.height,
+    initialWidth,
+    requestRender: options.requestRender,
   });
   try {
-    await surface.setIsland(options.island);
+    if (options.controller) {
+      await surface.setIsland(options.island);
+    }
     return surface;
   } catch (error) {
     await surface.destroy();

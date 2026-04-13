@@ -61,22 +61,29 @@ export default function CounterIsland() {
 }
 ```
 
-Mount it in `pi-tui`:
+Create a controller and bind it to `pi-tui`:
 
 ```tsx
 import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
+import { createOpenTuiIslandController } from "opentui-island";
 import { createPiTuiOpenTuiSurface } from "opentui-island/pi-tui";
 
 const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
 
-const surface = await createPiTuiOpenTuiSurface({
-  height: 4,
-  initialWidth: terminal.columns,
-  requestRender: () => tui.requestRender(),
+const controller = await createOpenTuiIslandController({
+  size: { width: terminal.columns, height: 4 },
   island: {
     module: new URL("./counter.island.tsx", import.meta.url),
   },
+});
+
+const surface = await createPiTuiOpenTuiSurface({
+  controller,
+  height: 4,
+  initialWidth: terminal.columns,
+  requestRender: () => tui.requestRender(),
+  island: controller.island!,
 });
 
 tui.addChild(surface);
@@ -98,6 +105,8 @@ await surface.waitUntilReady();
 ```
 
 Press `a` inside the island to increment the counter. Press `q` to quit.
+
+The same controller API works directly with lower-level hosts and can also be passed into Ink.
 
 ## Docs
 
