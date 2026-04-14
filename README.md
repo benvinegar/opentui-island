@@ -67,16 +67,17 @@ Since Ink is React-based, this is the simpler host integration:
 
 ```tsx
 import { render } from "ink";
-import { createIslandController } from "opentui-island";
 import { InkSurface } from "opentui-island/ink";
 
-const controller = await createIslandController({
-  island: {
-    module: new URL("./counter.island.tsx", import.meta.url),
-  },
-});
-
-render(<InkSurface controller={controller} width={24} height={4} />);
+render(
+  <InkSurface
+    width={24}
+    height={4}
+    island={{
+      module: new URL("./counter.island.tsx", import.meta.url),
+    }}
+  />,
+);
 ```
 
 Use it in `pi-tui`.
@@ -85,23 +86,18 @@ Use it in `pi-tui`.
 
 ```tsx
 import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
-import { createIslandController } from "opentui-island";
 import { createPiTuiSurface } from "opentui-island/pi-tui";
 
 const terminal = new ProcessTerminal();
 const tui = new TUI(terminal);
 
-const controller = await createIslandController({
-  island: {
-    module: new URL("./counter.island.tsx", import.meta.url),
-  },
-});
-
 const surface = await createPiTuiSurface({
-  controller,
   height: 4,
   initialWidth: terminal.columns,
   requestRender: () => tui.requestRender(),
+  island: {
+    module: new URL("./counter.island.tsx", import.meta.url),
+  },
 });
 
 tui.addChild(surface);
@@ -123,6 +119,8 @@ await surface.waitUntilReady();
 ```
 
 Press `a` inside the island to increment the counter. Press `q` to quit in `pi-tui`.
+
+For lower-level control over ready state, bridge events, or sharing one island lifecycle object across bindings, use `createIslandController(...)`. See [`docs/api.md`](docs/api.md).
 
 ## Docs
 
