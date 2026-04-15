@@ -10,6 +10,22 @@ All notable user-visible changes to this project are documented in this file.
 
 ### Fixed
 
+## [0.4.0] - 2026-04-15
+
+### Added
+
+- Added a shared `createIslandController(...)` API for mount, props, ready state, bridge events, commands, and frame sync across host runtimes.
+- Added shorter canonical adapter APIs such as `createPiTuiSurface(...)`, `createPiTuiModal(...)`, `InkSurface`, and `createSidecarHost(...)`.
+
+### Changed
+
+- Reworked the public naming so the package no longer repeats `OpenTui` in the primary API surface, while keeping the older names as compatibility aliases.
+- Simplified the README quick start to show direct Ink and `pi-tui` integration first, with the controller story moved into the API guide for advanced usage.
+
+### Fixed
+
+- Added packaging verification to CI so publish-surface regressions are caught before release.
+
 ## [0.3.0] - 2026-04-10
 
 ### Added
@@ -48,7 +64,7 @@ All notable user-visible changes to this project are documented in this file.
 
 ## [0.1.0] - 2026-04-08
 
-Note: `0.1.0` was published to npm, but this repo does not currently have a matching git tag for that release.
+Note: `0.1.0` was published to npm before the changelog was backfilled.
 
 ### Added
 
