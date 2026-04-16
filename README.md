@@ -131,6 +131,21 @@ Press `a` inside the island to increment the counter. Press `q` to quit in `pi-t
 - Repo examples: [`examples/`](examples)
 - Release history: [GitHub releases](https://github.com/benvinegar/opentui-island/releases)
 
+## Performance
+
+Rough local measurements on the repo's example island:
+
+| Operation                                            |      Avg |      p95 |
+| ---------------------------------------------------- | -------: | -------: |
+| Cold start to first frame (`createIslandController`) | 121.65ms | 134.92ms |
+| Warm frame sync (`syncFrame`)                        |   1.30ms |   2.08ms |
+| Key round-trip (`sendKey` + `syncFrame`)             |   1.76ms |   2.97ms |
+| Prop update round-trip (`updateProps` + `syncFrame`) |   1.73ms |   3.16ms |
+
+- Startup cost comes from launching the Bun sidecar.
+- Steady-state interaction overhead is low on a local machine.
+- These are rough local measurements, not CI or low-end hardware benchmarks.
+
 ## Development
 
 ```bash
