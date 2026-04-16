@@ -33,7 +33,7 @@ npm i opentui-island react @opentui/core @opentui/react ink
 
 ## Quick start
 
-Create one island module:
+Take an OpenTUI component:
 
 ```tsx
 /** @jsxImportSource @opentui/react */
@@ -61,9 +61,7 @@ export default function CounterIsland() {
 }
 ```
 
-Use it in Ink.
-
-Since Ink is React-based, this is the simpler host integration:
+Embed that component in Ink:
 
 ```tsx
 import { render } from "ink";
@@ -79,9 +77,7 @@ const controller = await createIslandController({
 render(<InkSurface controller={controller} width={24} height={4} />);
 ```
 
-Use it in `pi-tui`.
-
-`pi-tui` is a little more manual because you are wiring the surface into a terminal app directly:
+Or embed it in a Pi extension (pi-tui):
 
 ```tsx
 import { matchesKey, ProcessTerminal, TUI } from "@mariozechner/pi-tui";
@@ -123,6 +119,15 @@ await surface.waitUntilReady();
 ```
 
 Press `a` inside the island to increment the counter. Press `q` to quit in `pi-tui`.
+
+## How does it work?
+
+- Your app stays in Node. `opentui-island` starts a local Bun sidecar for the embedded OpenTUI tree.
+- The host adapter forwards size, focus, key, and mouse input to that sidecar.
+- The sidecar renders the island offscreen and sends the current frame back to the host, which draws it inside the surrounding app.
+- Use `props` to pass host state into the island.
+- Use `events` to send notifications from the island back to the host.
+- Use `commands` from the host to trigger imperative actions inside the island.
 
 ## Docs
 
