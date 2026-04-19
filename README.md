@@ -167,7 +167,11 @@ bun run test:node-integration
 
 ## Security
 
-Use the [GitHub Security](https://github.com/benvinegar/opentui-island/security) tab for sensitive reports.
+- Treat islands like trusted application code, similar to npm dependencies or local plugins.
+- The Bun sidecar provides runtime separation for rendering and compatibility. It is not a sandbox.
+- Do not mount untrusted or user-supplied island modules.
+- If an island renders untrusted text from users or remote systems, sanitize or escape terminal control sequences before displaying it.
+- Use the [GitHub Security](https://github.com/benvinegar/opentui-island/security) tab for sensitive reports.
 
 ## License
 

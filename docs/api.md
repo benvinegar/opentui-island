@@ -96,6 +96,13 @@ if (result.type === "save") {
 }
 ```
 
+## Security model
+
+- Treat islands like trusted application code, similar to npm dependencies or local plugins.
+- The Bun sidecar is a runtime boundary for rendering and compatibility, not a security sandbox.
+- Do not pass untrusted or user-supplied module specifiers into `mount(...)`, `setIsland(...)`, or `createIslandController(...)`.
+- If your island renders untrusted text, sanitize terminal control sequences before displaying it.
+
 ## Props vs events vs commands
 
 There are three ways to coordinate between the Node host and the Bun-rendered island:
